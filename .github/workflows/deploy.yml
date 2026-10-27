@@ -1,16 +1,11 @@
-name: Build & Deploy Backend
+name: Build & Deploy Backend (Rust)
 
 on:
   push:
     branches: [ main, master ]
     paths:
-      - 'apps/api/**'
-      - 'packages/**'
+      - 'apps/api-rust/**'
       - 'docker/**'
-      - 'pnpm-lock.yaml'
-      - 'package.json'
-      - 'pnpm-workspace.yaml'
-      - 'turbo.json'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
@@ -37,6 +32,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Resolve lowercase image name
         id: version
@@ -101,7 +98,7 @@ jobs:
           target: "/home/adminrekasandi/cabinet"
           strip_components: 0
 
-      - name: Deploy container and run migrations
+      - name: Deploy container with zero downtime
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST || vars.SSH_HOST || '38.9.46.133' }}
@@ -133,13 +130,10 @@ jobs:
               echo "IMAGE_TAG='${SHORT_SHA}'" >> docker/.env
             fi
 
-            # Pull the new image from GHCR
+            # Pull the new Rust image from GHCR
             docker compose --env-file docker/.env -f docker/compose.production.yml pull api
 
-            # Apply Prisma database migrations
-            docker compose --env-file docker/.env -f docker/compose.production.yml run --rm --no-deps api pnpm exec prisma migrate deploy
-
-            # Recreate api service with zero downtime
+            # Recreate api service with zero downtime (Rust binary runs SQLx migrations on startup automatically)
             docker compose --env-file docker/.env -f docker/compose.production.yml up -d --wait api
 
             # Health verification
@@ -148,4 +142,3 @@ jobs:
 
             # Prune dangling/old images
             docker image prune -f
-            echo "Deployment completed successfully!"

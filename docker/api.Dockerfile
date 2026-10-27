@@ -1,33 +1,49 @@
-FROM node:22-bookworm-slim AS base
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates openssl \
-    && rm -rf /var/lib/apt/lists/* \
-    && npm install -g pnpm@11.9.0
+# Multi-stage Dockerfile for Cabinet API (Rust + Axum)
+# Output binary is stripped and runs on minimal Debian Bookworm Slim with a non-root user.
+
+FROM rust:1.85-bookworm AS builder
+
 WORKDIR /app
 
-FROM base AS build
-RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
-    && rm -rf /var/lib/apt/lists/*
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY packages/typescript-config/ packages/typescript-config/
-COPY packages/eslint-config/ packages/eslint-config/
-COPY apps/api/package.json apps/api/package.json
-RUN pnpm --filter @cabinet/api... install --frozen-lockfile --child-concurrency=1 --network-concurrency=4
-COPY apps/api/ apps/api/
-RUN DATABASE_URL=postgresql://build:build@localhost:5432/build \
-    NODE_OPTIONS=--max-old-space-size=768 pnpm --filter @cabinet/api build
+# 1. Install build dependencies
+RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
 
-FROM base AS runtime
-RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-venv ffmpeg \
-    && rm -rf /var/lib/apt/lists/* \
-    && python3 -m venv /opt/yt-dlp \
-    && /opt/yt-dlp/bin/pip install --no-cache-dir yt-dlp
-ENV PATH="/opt/yt-dlp/bin:${PATH}" NODE_ENV=production
-COPY --from=build /app /app
-# Keep source archives readable by the non-root runtime user, even with a restrictive host umask.
-RUN chmod a+r /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml \
-    && chmod -R a+rX /app/packages /app/apps/api \
-    && chown -R node:node /app/apps/api
-WORKDIR /app/apps/api
-USER node
+# 2. Copy dependency definitions
+COPY apps/api-rust/Cargo.toml apps/api-rust/Cargo.lock ./
+
+# Create dummy src to build dependencies
+RUN mkdir src && echo "fn main() {}" > src/main.rs
+RUN cargo build --release && rm -rf src
+
+# 3. Copy real source code and migrations
+COPY apps/api-rust/src src
+COPY apps/api-rust/migrations migrations
+
+# Touch main.rs to invalidate dummy build and produce real release binary
+RUN touch src/main.rs && cargo build --release
+
+# 4. Final minimal runtime stage (~45MB)
+FROM debian:bookworm-slim AS runner
+
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates tzdata curl && rm -rf /var/lib/apt/lists/*
+
+# Create non-root system user
+RUN groupadd -g 1001 appuser && useradd -u 1001 -g appuser -s /bin/sh appuser
+
+WORKDIR /app
+
+# Copy binary from builder
+COPY --from=builder /app/target/release/cabinet-api /app/cabinet-api
+COPY --from=builder /app/migrations /app/migrations
+
+RUN chown -R appuser:appuser /app
+
+USER appuser
+
+ENV HOST=0.0.0.0
+ENV PORT=4000
+ENV RUST_LOG=cabinet_api=info,tower_http=info
+
 EXPOSE 4000
-CMD ["node", "dist/main.js"]
+
+ENTRYPOINT ["/app/cabinet-api"]
