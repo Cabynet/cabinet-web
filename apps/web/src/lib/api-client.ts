@@ -34,15 +34,11 @@ import {
 
 export {
   AXIOS_INSTANCE,
-  useCreateBookmark as useBookmarksControllerCreate,
-  useUpdateBookmark as useBookmarksControllerUpdate,
   useDeleteBookmark as useBookmarksControllerRemove,
   useGetDuplicatesHandler as useBookmarksControllerGetDuplicates,
   useCleanupDuplicatesHandler as useBookmarksControllerCleanDuplicates,
   useExportBookmarksHandler as useBookmarksControllerExportBookmarks,
   useListFolders as useFoldersControllerFindAll,
-  useCreateFolder as useFoldersControllerCreate,
-  useUpdateFolder as useFoldersControllerUpdate,
   useDeleteFolder as useFoldersControllerRemove,
   useListTags as useTagsControllerFindAll,
   useDeleteTag as useTagsControllerRemove,
@@ -55,6 +51,111 @@ export {
   useUpdateProfileHandler,
   useChangePasswordHandler,
   useDeleteAccountHandler,
+}
+
+function mapCreateBookmarkPayload(payload: any) {
+  const raw = payload?.data ?? payload
+  return {
+    url: raw.url,
+    title: raw.title,
+    description: raw.description,
+    folder_id: raw.folder_id ?? raw.folderId,
+    item_type: raw.item_type ?? raw.type ?? (raw.url ? "LINK" : "NOTE"),
+    client_request_id: raw.client_request_id ?? raw.clientRequestId,
+    tags: raw.tags,
+  }
+}
+
+export function useBookmarksControllerCreate(options?: any) {
+  const mutation = useCreateBookmark(options)
+  return {
+    ...mutation,
+    mutate: (variables: any, mutateOptions?: any) => {
+      return mutation.mutate({ data: mapCreateBookmarkPayload(variables) }, mutateOptions)
+    },
+    mutateAsync: async (variables: any, mutateOptions?: any) => {
+      return mutation.mutateAsync({ data: mapCreateBookmarkPayload(variables) }, mutateOptions)
+    },
+  }
+}
+
+function mapUpdateBookmarkPayload(payload: any) {
+  const raw = payload?.data ?? payload
+  return {
+    title: raw.title,
+    description: raw.description,
+    folder_id: raw.folder_id ?? raw.folderId,
+    is_pinned: raw.is_pinned ?? raw.isPinned,
+    is_favorite: raw.is_favorite ?? raw.isFavorite,
+    is_archived: raw.is_archived ?? raw.isArchived,
+    tags: raw.tags,
+  }
+}
+
+export function useBookmarksControllerUpdate(options?: any) {
+  const mutation = useUpdateBookmark(options)
+  return {
+    ...mutation,
+    mutate: (variables: any, mutateOptions?: any) => {
+      const id = variables.id
+      const data = mapUpdateBookmarkPayload(variables)
+      return (mutation as any).mutate({ id, data }, mutateOptions)
+    },
+    mutateAsync: async (variables: any, mutateOptions?: any) => {
+      const id = variables.id
+      const data = mapUpdateBookmarkPayload(variables)
+      return (mutation as any).mutateAsync({ id, data }, mutateOptions)
+    },
+  }
+}
+
+function mapCreateFolderPayload(payload: any) {
+  const raw = payload?.data ?? payload
+  return {
+    name: raw.name,
+    description: raw.description,
+    parent_id: raw.parent_id ?? raw.parentId,
+  }
+}
+
+export function useFoldersControllerCreate(options?: any) {
+  const mutation = useCreateFolder(options)
+  return {
+    ...mutation,
+    mutate: (variables: any, mutateOptions?: any) => {
+      return mutation.mutate({ data: mapCreateFolderPayload(variables) }, mutateOptions)
+    },
+    mutateAsync: async (variables: any, mutateOptions?: any) => {
+      return mutation.mutateAsync({ data: mapCreateFolderPayload(variables) }, mutateOptions)
+    },
+  }
+}
+
+function mapUpdateFolderPayload(payload: any) {
+  const raw = payload?.data ?? payload
+  return {
+    name: raw.name,
+    description: raw.description,
+    parent_id: raw.parent_id ?? raw.parentId,
+    position: raw.position,
+  }
+}
+
+export function useFoldersControllerUpdate(options?: any) {
+  const mutation = useUpdateFolder(options)
+  return {
+    ...mutation,
+    mutate: (variables: any, mutateOptions?: any) => {
+      const id = variables.id
+      const data = mapUpdateFolderPayload(variables)
+      return (mutation as any).mutate({ id, data }, mutateOptions)
+    },
+    mutateAsync: async (variables: any, mutateOptions?: any) => {
+      const id = variables.id
+      const data = mapUpdateFolderPayload(variables)
+      return (mutation as any).mutateAsync({ id, data }, mutateOptions)
+    },
+  }
 }
 
 export type { MediaFormat, MediaInfo } from "@cabinet/api-client"

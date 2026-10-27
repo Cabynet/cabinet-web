@@ -6,11 +6,22 @@ import { AXIOS_INSTANCE } from "@/lib/api-client"
 import { bookmarkUrl } from "@/lib/bookmark-url"
 
 export async function searchBookmarks(search: string, cursor?: string, signal?: AbortSignal, limit = 20) {
+  const domain = search.includes('.') ? search.replace(/^www\./, '') : undefined
   const response = await AXIOS_INSTANCE.get('/v1/bookmarks', {
-    params: { search, cursor, limit, sort: 'newest' }, signal,
+    params: { domain, cursor, limit }, signal,
   })
   const result = response.data?.data ?? response.data
-  return result as { data: any[]; nextCursor?: string | null; totalCount?: number }
+  const items = Array.isArray(result)
+    ? result
+    : Array.isArray(result?.items)
+      ? result.items
+      : Array.isArray(result?.data?.data)
+        ? result.data.data
+        : Array.isArray(result?.data)
+          ? result.data
+          : []
+  const nextCursor = result?.next_cursor ?? result?.nextCursor ?? null
+  return { data: items, nextCursor, totalCount: items.length }
 }
 
 export async function findExistingBookmark(url: string, signal?: AbortSignal, excludeId?: string) {
@@ -18,16 +29,24 @@ export async function findExistingBookmark(url: string, signal?: AbortSignal, ex
   if (!canonical) return null
   let cursor: string | undefined
   const seen = new Set<string>()
-  do {
-    // Match across URL spellings (default ports, fragments and trailing slashes).
-    // ponytail: scan this host's pages; add an indexed canonical URL if large libraries make this slow.
-    const page = await searchBookmarks(new URL(canonical).hostname, cursor, signal, 100)
-    const match = page.data.find((item) => item.id !== excludeId && bookmarkUrl(item.url || '') === canonical)
-    if (match) return match
-    cursor = page.nextCursor || undefined
-    if (cursor && seen.has(cursor)) break
-    if (cursor) seen.add(cursor)
-  } while (cursor)
+  try {
+    const hostname = new URL(canonical).hostname.replace(/^www\./, '')
+    do {
+      // Match across URL spellings (default ports, fragments and trailing slashes).
+      const page = await searchBookmarks(hostname, cursor, signal, 100)
+      const list = page?.data || []
+      const match = list.find((item: any) => {
+        const itemUrl = item.raw_url || item.url || ''
+        return item.id !== excludeId && bookmarkUrl(itemUrl) === canonical
+      })
+      if (match) return match
+      cursor = page?.nextCursor || undefined
+      if (cursor && seen.has(cursor)) break
+      if (cursor) seen.add(cursor)
+    } while (cursor)
+  } catch {
+    return null
+  }
   return null
 }
 

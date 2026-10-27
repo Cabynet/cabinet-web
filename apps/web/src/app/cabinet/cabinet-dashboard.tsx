@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
+import nextDynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import {
@@ -32,6 +33,7 @@ import { SearchQueryContext } from "./components/search-highlight"
 import { ShareFolderDialog } from "./components/share-folder-dialog"
 import { canAddToFolder, describeFolderAccess, folderAccess } from "@/lib/folder-roles"
 import { editorPath } from "@/lib/bookmark-kind"
+import { useBookmarkEnrichment } from "./hooks/use-bookmark-enrichment"
 import { BookmarkList } from "./components/bookmark-list"
 import { Sortable } from "@/components/ui/sortable"
 import { bookmarkCollisionDetection, masonrySortingStrategy } from "@/lib/bookmark-sortable"
@@ -57,7 +59,10 @@ import {
 } from "@/components/ui/action-bar"
 import { MobileBottomNav, type MobileTab } from "./components/mobile-bottom-nav"
 import { MobileAddBookmarkDrawer } from "./components/mobile-add-bookmark-drawer"
-import { DownloadMediaDialog } from "./components/download-media-dialog"
+const DownloadMediaDialog = nextDynamic(
+  () => import("./components/download-media-dialog").then((module) => module.DownloadMediaDialog),
+  { loading: () => <div role="status" className="fixed inset-0 z-50 grid place-items-center bg-background/60"><Spinner /></div> },
+)
 import { CommandMenu } from "./components/command-menu"
 import { BulkActionsSheet, BulkTagForm } from "./components/bulk-actions-sheet"
 import { useCabinetFilters } from "./hooks/use-cabinet-filters"
@@ -69,6 +74,35 @@ import { useCabinetForms } from "./hooks/use-cabinet-forms"
 import { useCabinetShortcuts } from "./hooks/use-cabinet-shortcuts"
 
 export const dynamic = "force-dynamic"
+
+function normalizeBookmark(b: any) {
+  if (!b) return b
+  return {
+    ...b,
+    url: b.url ?? b.raw_url,
+    raw_url: b.raw_url ?? b.url,
+    domain: b.domain ?? b.normalized_domain,
+    normalized_domain: b.normalized_domain ?? b.domain,
+    imageUrl: b.imageUrl ?? b.thumbnail_url,
+    thumbnail_url: b.thumbnail_url ?? b.imageUrl,
+    faviconUrl: b.faviconUrl ?? b.favicon_url,
+    favicon_url: b.favicon_url ?? b.faviconUrl,
+    isPinned: b.isPinned ?? b.is_pinned ?? false,
+    is_pinned: b.is_pinned ?? b.isPinned ?? false,
+    isFavorite: b.isFavorite ?? b.is_favorite ?? false,
+    is_favorite: b.is_favorite ?? b.isFavorite ?? false,
+    isArchived: b.isArchived ?? b.is_archived ?? false,
+    is_archived: b.is_archived ?? b.isArchived ?? false,
+    folderId: b.folderId ?? b.folder_id,
+    folder_id: b.folder_id ?? b.folderId,
+    metadataStatus: b.metadataStatus ?? b.metadata_status ?? "PENDING",
+    metadata_status: b.metadata_status ?? b.metadataStatus ?? "PENDING",
+    createdAt: b.createdAt ?? b.created_at,
+    created_at: b.created_at ?? b.createdAt,
+    updatedAt: b.updatedAt ?? b.updated_at,
+    updated_at: b.updated_at ?? b.updatedAt,
+  }
+}
 
 export function CabinetDashboard() {
   const [open, setOpen] = useState(true)
@@ -246,6 +280,7 @@ function CabinetWorkspace() {
       addedAfter: addedAfter || undefined,
       addedBefore: addedBefore || undefined,
       limit: 20,
+      summary: true,
       sort,
       status: filterBroken ? "BROKEN" : undefined,
     } as any,
@@ -253,13 +288,14 @@ function CabinetWorkspace() {
       query: {
         enabled: !isMeLoading && !!user,
         initialPageParam: undefined,
-        // Shared folders poll for collaborators' changes, but never mid-reorder.
+        // Enrichment uses the lightweight previews endpoint instead of refetching every page.
         refetchInterval: selectedFolderId && !filterTrash && !reorderMutation.isPending ? 15000 : false,
         getNextPageParam: (lastPage: any) =>
-          lastPage?.data?.nextCursor || undefined,
+          lastPage?.next_cursor ?? lastPage?.nextCursor ?? lastPage?.data?.nextCursor ?? undefined,
       },
     }
   )
+  useBookmarkEnrichment(bookmarksInfiniteData, user?.id, filterTrash || reorderMutation.isPending)
   const bookmarkScrollRef = React.useRef<HTMLElement>(null)
   const loadMoreRef = React.useRef<HTMLDivElement>(null)
   React.useEffect(() => {
@@ -283,9 +319,10 @@ function CabinetWorkspace() {
   }, [mounted, isLoading, user, filterDuplicates, hasNextPage, isFetchingBookmarks, isFetchNextPageError, fetchNextPage, bookmarksInfiniteData])
 
   const rawBookmarks =
-    bookmarksInfiniteData?.pages.flatMap(
-      (page: any) => page?.data?.data || []
-    ) || []
+    bookmarksInfiniteData?.pages.flatMap((page: any) => {
+      const list = page?.items ?? page?.data?.data ?? page?.data ?? []
+      return Array.isArray(list) ? list.map(normalizeBookmark) : []
+    }) || []
   const bookmarks = Array.from(
     new Map(rawBookmarks.map((b: any) => [b.id, b])).values()
   )
@@ -519,7 +556,10 @@ function CabinetWorkspace() {
         const loadedBookmarks = Array.from(
           new Map(
             allPages
-              .flatMap((page: any) => page?.data?.data || [])
+              .flatMap((page: any) => {
+                const list = page?.items ?? page?.data?.data ?? page?.data ?? []
+                return Array.isArray(list) ? list.map(normalizeBookmark) : []
+              })
               .map((b: any) => [b.id, b])
           ).values()
         )

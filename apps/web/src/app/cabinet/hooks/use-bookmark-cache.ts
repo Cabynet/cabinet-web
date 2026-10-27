@@ -13,6 +13,12 @@ export function useBookmarkCache() {
           return {
             ...oldData,
             pages: oldData.pages.map((page: any) => {
+              if (Array.isArray(page?.items)) {
+                return {
+                  ...page,
+                  items: page.items.map((b: any) => (b.id === id ? updater(b) : b)),
+                }
+              }
               const currentItems = page?.data?.data
               if (!Array.isArray(currentItems)) return page
               return {
@@ -32,6 +38,12 @@ export function useBookmarkCache() {
         { queryKey: ["/v1/bookmarks"] },
         (oldData: any) => {
           if (!oldData) return oldData
+          if (Array.isArray(oldData.items)) {
+            return {
+              ...oldData,
+              items: oldData.items.map((b: any) => (b.id === id ? updater(b) : b)),
+            }
+          }
           const dataArray = oldData.data?.data || oldData.data
           if (!Array.isArray(dataArray)) return oldData
           const updated = dataArray.map((b: any) => (b.id === id ? updater(b) : b))
@@ -54,6 +66,12 @@ export function useBookmarkCache() {
           return {
             ...oldData,
             pages: oldData.pages.map((page: any) => {
+              if (Array.isArray(page?.items)) {
+                return {
+                  ...page,
+                  items: page.items.filter((b: any) => b.id !== id),
+                }
+              }
               const currentItems = page?.data?.data
               if (!Array.isArray(currentItems)) return page
               return {
@@ -72,6 +90,12 @@ export function useBookmarkCache() {
         { queryKey: ["/v1/bookmarks"] },
         (oldData: any) => {
           if (!oldData) return oldData
+          if (Array.isArray(oldData.items)) {
+            return {
+              ...oldData,
+              items: oldData.items.filter((b: any) => b.id !== id),
+            }
+          }
           const dataArray = oldData.data?.data || oldData.data
           if (!Array.isArray(dataArray)) return oldData
           const filtered = dataArray.filter((b: any) => b.id !== id)
