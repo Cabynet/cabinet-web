@@ -211,6 +211,34 @@
         }
       }
     },
+    "/v1/auth/sign-in/social": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "sign_in_social_handler",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignInSocialRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OAuth authorization URL",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/bookmarks": {
       "get": {
         "tags": [
@@ -1076,6 +1104,94 @@
           }
         }
       }
+    },
+    "/v1/users/change-password": {
+      "post": {
+        "tags": [
+          "users"
+        ],
+        "operationId": "change_password_handler",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Password updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserActionResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Current password incorrect",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/users/me": {
+      "delete": {
+        "tags": [
+          "users"
+        ],
+        "operationId": "delete_account_handler",
+        "responses": {
+          "200": {
+            "description": "Account deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserActionResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "users"
+        ],
+        "operationId": "update_profile_handler",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Profile updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthUser"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1285,6 +1401,21 @@
             "type": "string"
           },
           "slug": {
+            "type": "string"
+          }
+        }
+      },
+      "ChangePasswordRequest": {
+        "type": "object",
+        "required": [
+          "new_password"
+        ],
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "nullable": true
+          },
+          "new_password": {
             "type": "string"
           }
         }
@@ -1944,6 +2075,25 @@
           }
         }
       },
+      "SignInSocialRequest": {
+        "type": "object",
+        "required": [
+          "provider"
+        ],
+        "properties": {
+          "callbackURL": {
+            "type": "string",
+            "nullable": true
+          },
+          "callback_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "provider": {
+            "type": "string"
+          }
+        }
+      },
       "TagDto": {
         "type": "object",
         "required": [
@@ -2107,6 +2257,34 @@
             "nullable": true
           }
         }
+      },
+      "UpdateUserRequest": {
+        "type": "object",
+        "properties": {
+          "avatar_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "UserActionResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
       }
     }
   },
@@ -2142,6 +2320,10 @@
     {
       "name": "tasks",
       "description": "Background task tracking"
+    },
+    {
+      "name": "users",
+      "description": "User profile and account management"
     }
   ]
 }

@@ -27,6 +27,9 @@ import {
   useSearchHandler,
   usePresignUploadHandler,
   useConfirmUploadHandler,
+  useUpdateProfileHandler,
+  useChangePasswordHandler,
+  useDeleteAccountHandler,
 } from "@cabinet/api-client"
 
 export {
@@ -49,6 +52,9 @@ export {
   useSearchHandler,
   usePresignUploadHandler,
   useConfirmUploadHandler,
+  useUpdateProfileHandler,
+  useChangePasswordHandler,
+  useDeleteAccountHandler,
 }
 
 export type { MediaFormat, MediaInfo } from "@cabinet/api-client"

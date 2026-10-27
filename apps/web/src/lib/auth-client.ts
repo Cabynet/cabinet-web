@@ -83,7 +83,23 @@ export const authClient = {
           credentials: "include",
           body: JSON.stringify({ provider, callbackURL, errorCallbackURL }),
         })
-        const data = await res.json()
+        const text = await res.text()
+        let data: any = {}
+        try {
+          data = JSON.parse(text)
+        } catch {}
+
+        if (!res.ok) {
+          return {
+            data: null,
+            error: {
+              message:
+                data?.error?.message ||
+                `Authentication failed: ${provider} OAuth is not configured yet or server returned status ${res.status}.`,
+            },
+          }
+        }
+
         if (typeof window !== "undefined" && data?.url) {
           window.location.href = data.url
         }
@@ -193,7 +209,17 @@ export const authClient = {
     error: null,
   }),
 
-  deleteUser: async (_: any): Promise<{ error: AuthError }> => ({
-    error: null,
-  }),
+  deleteUser: async (_?: any): Promise<{ error: AuthError }> => {
+    try {
+      await fetch(`${API_URL}/v1/users/me`, {
+        method: "DELETE",
+        credentials: "include",
+      })
+      window.location.href = "/login"
+      return { error: null }
+    } catch (err: any) {
+      window.location.href = "/login"
+      return { error: { message: err?.message || "Failed to delete account" } }
+    }
+  },
 }

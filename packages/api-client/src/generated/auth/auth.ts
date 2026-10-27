@@ -31,7 +31,8 @@ import type {
   OAuthUrlResponse,
   OauthAuthorizeHandlerParams,
   RegisterRequest,
-  SessionResponse
+  SessionResponse,
+  SignInSocialRequest
 } from '../model';
 
 import { customInstance } from '../../custom-instance.js';
@@ -407,4 +408,62 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getRegisterHandlerMutationOptions(options), queryClient);
+    }
+    export const signInSocialHandler = (
+    signInSocialRequest: SignInSocialRequest,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<unknown>(
+      {url: `/v1/auth/sign-in/social`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: signInSocialRequest, signal
+    },
+      options);
+    }
+
+
+
+
+export const getSignInSocialHandlerMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof signInSocialHandler>>, TError,{data: SignInSocialRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof signInSocialHandler>>, TError,{data: SignInSocialRequest}, TContext> => {
+
+const mutationKey = ['signInSocialHandler'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof signInSocialHandler>>, {data: SignInSocialRequest}> = (props) => {
+          const {data} = props ?? {};
+
+          return  signInSocialHandler(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SignInSocialHandlerMutationResult = NonNullable<Awaited<ReturnType<typeof signInSocialHandler>>>
+    export type SignInSocialHandlerMutationBody = SignInSocialRequest
+    export type SignInSocialHandlerMutationError = unknown
+
+    export const useSignInSocialHandler = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof signInSocialHandler>>, TError,{data: SignInSocialRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof signInSocialHandler>>,
+        TError,
+        {data: SignInSocialRequest},
+        TContext
+      > => {
+      return useMutation(getSignInSocialHandlerMutationOptions(options), queryClient);
     }
