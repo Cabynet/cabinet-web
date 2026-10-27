@@ -2,7 +2,7 @@ import { defineConfig } from 'orval';
 
 export default defineConfig({
   cabinet: {
-    input: '../../apps/api/openapi.json',
+    input: './openapi.json',
     output: {
       mode: 'tags-split',
       target: './src/generated/cabinet.ts',
