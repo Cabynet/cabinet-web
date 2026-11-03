@@ -68,7 +68,8 @@ test("webview embeds websites that allow framing, with sandbox and an external f
 test("webview still tries the sandboxed proxy when direct framing is blocked", () => {
   for (const host of ["skills.sh", "www.skills.sh", "www.reddit.com", "shopee.co.id"]) {
     const html = render(`https://${host}/article`, false)
-    assert.match(html, /<iframe[^>]+src="http:\/\/localhost:4000\/v1\/bookmarks\/proxy-page\?url=/)
+    // The proxied src is signed by the API after mount, so the first render has none and never frames the site directly.
+    assert.match(html, /<iframe(?![^>]*\ssrc=)/)
     assert.match(html, /sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"/)
     assert.doesNotMatch(html, /allow-same-origin/)
     assert.doesNotMatch(html, /aria-label="Saved details"/)
@@ -78,10 +79,11 @@ test("webview still tries the sandboxed proxy when direct framing is blocked", (
 })
 
 test("saved details and proxied pages go through the API", async () => {
-  const { getProxiedImageUrl } = await import("../src/lib/bookmark-image.ts")
-  const { getProxiedPageUrl } = await import("../src/lib/bookmark-page.ts")
-  assert.equal(getProxiedImageUrl("https://cdn.example.com/a.jpg"), "http://localhost:4000/v1/bookmarks/proxy-image?v=2&url=https%3A%2F%2Fcdn.example.com%2Fa.jpg")
-  assert.equal(getProxiedPageUrl("https://skills.sh/a?b=1&c=2"), "http://localhost:4000/v1/bookmarks/proxy-page?url=https%3A%2F%2Fskills.sh%2Fa%3Fb%3D1%26c%3D2&v=2")
+  const { signProxyUrl } = await import("../src/lib/signed-proxy.ts")
+  let body
+  globalThis.fetch = async (_url, init) => { body = JSON.parse(init.body); return Response.json({ items: [{ url: body.urls[0], signedUrl: "/v1/bookmarks/proxy-page?url=x&sig=ab" }] }) }
+  assert.equal(await signProxyUrl("https://skills.sh/a?b=1&c=2", { kind: "page" }), "http://localhost:4000/v1/bookmarks/proxy-page?url=x&sig=ab")
+  assert.deepEqual(body, { urls: ["https://skills.sh/a?b=1&c=2"], kind: "page" })
 })
 
 test("webview embeds YouTube videos directly with the official player without waiting for the framing check", () => {

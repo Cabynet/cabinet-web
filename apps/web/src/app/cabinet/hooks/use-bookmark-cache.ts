@@ -1,123 +1,21 @@
-import { useQueryClient } from "@tanstack/react-query"
+import { useQueryClient, type InfiniteData } from "@tanstack/react-query"
 import { useCallback } from "react"
+import type { BookmarkListItem, BookmarkListResponse } from "@cabinet/api-client"
+import { bookmarkFromApi } from "@/lib/api-model"
 
+type Bookmark = ReturnType<typeof bookmarkFromApi>
 export function useBookmarkCache() {
-  const queryClient = useQueryClient()
-
-  const updateBookmarkInCache = useCallback(
-    (id: string, updater: (bookmark: any) => any) => {
-      queryClient.setQueriesData(
-        { queryKey: ["infinite", "/v1/bookmarks"] },
-        (oldData: any) => {
-          if (!oldData?.pages) return oldData
-          return {
-            ...oldData,
-            pages: oldData.pages.map((page: any) => {
-              if (Array.isArray(page?.items)) {
-                return {
-                  ...page,
-                  items: page.items.map((b: any) => (b.id === id ? updater(b) : b)),
-                }
-              }
-              const currentItems = page?.data?.data
-              if (!Array.isArray(currentItems)) return page
-              return {
-                ...page,
-                data: {
-                  ...page.data,
-                  data: currentItems.map((b: any) =>
-                    b.id === id ? updater(b) : b
-                  ),
-                },
-              }
-            }),
-          }
-        }
-      )
-      queryClient.setQueriesData(
-        { queryKey: ["/v1/bookmarks"] },
-        (oldData: any) => {
-          if (!oldData) return oldData
-          if (Array.isArray(oldData.items)) {
-            return {
-              ...oldData,
-              items: oldData.items.map((b: any) => (b.id === id ? updater(b) : b)),
-            }
-          }
-          const dataArray = oldData.data?.data || oldData.data
-          if (!Array.isArray(dataArray)) return oldData
-          const updated = dataArray.map((b: any) => (b.id === id ? updater(b) : b))
-          if (oldData.data?.data) {
-            return { ...oldData, data: { ...oldData.data, data: updated } }
-          }
-          return { ...oldData, data: updated }
-        }
-      )
-    },
-    [queryClient]
-  )
-
-  const removeBookmarkFromCache = useCallback(
-    (id: string) => {
-      queryClient.setQueriesData(
-        { queryKey: ["infinite", "/v1/bookmarks"] },
-        (oldData: any) => {
-          if (!oldData?.pages) return oldData
-          return {
-            ...oldData,
-            pages: oldData.pages.map((page: any) => {
-              if (Array.isArray(page?.items)) {
-                return {
-                  ...page,
-                  items: page.items.filter((b: any) => b.id !== id),
-                }
-              }
-              const currentItems = page?.data?.data
-              if (!Array.isArray(currentItems)) return page
-              return {
-                ...page,
-                data: {
-                  ...page.data,
-                  data: currentItems.filter((b: any) => b.id !== id),
-                  totalCount: Math.max(0, (page.data?.totalCount || 1) - 1),
-                },
-              }
-            }),
-          }
-        }
-      )
-      queryClient.setQueriesData(
-        { queryKey: ["/v1/bookmarks"] },
-        (oldData: any) => {
-          if (!oldData) return oldData
-          if (Array.isArray(oldData.items)) {
-            return {
-              ...oldData,
-              items: oldData.items.filter((b: any) => b.id !== id),
-            }
-          }
-          const dataArray = oldData.data?.data || oldData.data
-          if (!Array.isArray(dataArray)) return oldData
-          const filtered = dataArray.filter((b: any) => b.id !== id)
-          if (oldData.data?.data) {
-            return {
-              ...oldData,
-              data: {
-                ...oldData.data,
-                data: filtered,
-                totalCount: Math.max(0, (oldData.data?.totalCount || 1) - 1),
-              },
-            }
-          }
-          return { ...oldData, data: filtered }
-        }
-      )
-    },
-    [queryClient]
-  )
-
-  return {
-    updateBookmarkInCache,
-    removeBookmarkFromCache,
-  }
+  const client = useQueryClient()
+  const patch = useCallback((change: (item: BookmarkListItem) => BookmarkListItem | null) => {
+    const page = (data: BookmarkListResponse | undefined) => data && ({ ...data, items: data.items.flatMap((item) => { const next = change(item); return next ? [next] : [] }) })
+    client.setQueriesData<InfiniteData<BookmarkListResponse>>({ queryKey: ["infinite", "/v1/bookmarks"] }, (data) => data && ({ ...data, pages: data.pages.map((p) => page(p)!) }))
+    client.setQueriesData<BookmarkListResponse>({ queryKey: ["/v1/bookmarks"], predicate: (q) => Array.isArray((q.state.data as BookmarkListResponse | undefined)?.items) }, page)
+  }, [client])
+  const updateBookmarkInCache = useCallback((id: string, update: (item: Bookmark) => Bookmark) => patch((item) => {
+    if (item.id !== id) return item
+    const next = update(bookmarkFromApi(item))
+    return { ...item, isFavorite: next.isFavorite, isPinned: next.isPinned, isArchived: next.isArchived, folderId: next.folderId }
+  }), [patch])
+  const removeBookmarkFromCache = useCallback((id: string) => patch((item) => item.id === id ? null : item), [patch])
+  return { updateBookmarkInCache, removeBookmarkFromCache }
 }

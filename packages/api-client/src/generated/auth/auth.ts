@@ -25,9 +25,9 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
-  AuthUser,
   ErrorResponse,
   LoginRequest,
+  MeResponse,
   OAuthUrlResponse,
   OauthAuthorizeHandlerParams,
   RegisterRequest,
@@ -177,7 +177,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 ) => {
 
 
-      return customInstance<AuthUser>(
+      return customInstance<MeResponse>(
       {url: `/v1/auth/me`, method: 'GET', signal
     },
       options);

@@ -7,15 +7,15 @@
  */
 
 export interface TaskStatusDto {
-  created_at: string;
+  createdAt: string;
   /** @nullable */
-  error_message?: string | null;
-  failed_items: number;
+  errorMessage?: string | null;
+  failedItems: number;
   /** @nullable */
-  finished_at?: string | null;
+  finishedAt?: string | null;
   id: string;
   kind: string;
-  processed_items: number;
+  processedItems: number;
   status: string;
-  total_items: number;
+  totalItems: number;
 }

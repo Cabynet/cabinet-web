@@ -8,6 +8,6 @@
 
 export interface PresignUploadRequest {
   filename: string;
-  mime_type: string;
-  size_bytes: number;
+  mimeType: string;
+  sizeBytes: number;
 }

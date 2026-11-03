@@ -7,19 +7,19 @@
  */
 
 export interface PublicBookmarkItem {
-  created_at: string;
+  createdAt: string;
   /** @nullable */
   description?: string | null;
   /** @nullable */
-  favicon_url?: string | null;
+  faviconUrl?: string | null;
   id: string;
   /** @nullable */
-  normalized_domain?: string | null;
+  normalizedDomain?: string | null;
   /** @nullable */
-  raw_url?: string | null;
+  rawUrl?: string | null;
   /** @nullable */
-  site_name?: string | null;
+  siteName?: string | null;
   /** @nullable */
-  thumbnail_url?: string | null;
+  thumbnailUrl?: string | null;
   title: string;
 }

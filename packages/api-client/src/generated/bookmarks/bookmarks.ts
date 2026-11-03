@@ -30,15 +30,27 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AffectedResponse,
   BookmarkListItem,
   BookmarkListResponse,
   BookmarkPreviewsResponse,
+  BulkRequest,
   CreateBookmarkRequest,
+  DrawingRequest,
   DuplicateCleanupResponse,
   DuplicateReportResponse,
+  EmbeddableParams,
+  EmbeddableResponse,
   GetPreviewsParams,
+  IdResponse,
   LinkHealthCheckResponse,
+  LinkHealthSummary,
   ListBookmarksParams,
+  ProxyImageHandlerParams,
+  ReorderRequest,
+  ScrapeParams,
+  ScrapeResponse,
+  TaskQueuedResponse,
   UpdateBookmarkRequest
 } from '../model';
 
@@ -279,6 +291,65 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getCreateBookmarkMutationOptions(options), queryClient);
     }
+    export const bulk = (
+    action: string,
+    bulkRequest: BulkRequest,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<AffectedResponse>(
+      {url: `/v1/bookmarks/bulk/${action}`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: bulkRequest, signal
+    },
+      options);
+    }
+
+
+
+
+export const getBulkMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulk>>, TError,{action: string;data: BulkRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof bulk>>, TError,{action: string;data: BulkRequest}, TContext> => {
+
+const mutationKey = ['bulk'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof bulk>>, {action: string;data: BulkRequest}> = (props) => {
+          const {action,data} = props ?? {};
+
+          return  bulk(action,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BulkMutationResult = NonNullable<Awaited<ReturnType<typeof bulk>>>
+    export type BulkMutationBody = BulkRequest
+    export type BulkMutationError = unknown
+
+    export const useBulk = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulk>>, TError,{action: string;data: BulkRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof bulk>>,
+        TError,
+        {action: string;data: BulkRequest},
+        TContext
+      > => {
+      return useMutation(getBulkMutationOptions(options), queryClient);
+    }
     export const getDuplicatesHandler = (
 
  options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
@@ -421,7 +492,94 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getCleanupDuplicatesHandlerMutationOptions(options), queryClient);
     }
-    export const exportBookmarksHandler = (
+    export const embeddable = (
+    params: EmbeddableParams,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<EmbeddableResponse>(
+      {url: `/v1/bookmarks/embeddable`, method: 'GET',
+        params, signal
+    },
+      options);
+    }
+
+
+
+
+export const getEmbeddableQueryKey = (params?: EmbeddableParams,) => {
+    return [
+    `/v1/bookmarks/embeddable`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getEmbeddableQueryOptions = <TData = Awaited<ReturnType<typeof embeddable>>, TError = unknown>(params: EmbeddableParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof embeddable>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getEmbeddableQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof embeddable>>> = ({ signal }) => embeddable(params, requestOptions, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof embeddable>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type EmbeddableQueryResult = NonNullable<Awaited<ReturnType<typeof embeddable>>>
+export type EmbeddableQueryError = unknown
+
+
+export function useEmbeddable<TData = Awaited<ReturnType<typeof embeddable>>, TError = unknown>(
+ params: EmbeddableParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof embeddable>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof embeddable>>,
+          TError,
+          Awaited<ReturnType<typeof embeddable>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useEmbeddable<TData = Awaited<ReturnType<typeof embeddable>>, TError = unknown>(
+ params: EmbeddableParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof embeddable>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof embeddable>>,
+          TError,
+          Awaited<ReturnType<typeof embeddable>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useEmbeddable<TData = Awaited<ReturnType<typeof embeddable>>, TError = unknown>(
+ params: EmbeddableParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof embeddable>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useEmbeddable<TData = Awaited<ReturnType<typeof embeddable>>, TError = unknown>(
+ params: EmbeddableParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof embeddable>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getEmbeddableQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const exportBookmarksHandler = (
 
  options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
@@ -507,7 +665,149 @@ export function useExportBookmarksHandler<TData = Awaited<ReturnType<typeof expo
 
 
 
-export const getPreviews = (
+export const health = (
+
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<LinkHealthSummary>(
+      {url: `/v1/bookmarks/health`, method: 'GET', signal
+    },
+      options);
+    }
+
+
+
+
+export const getHealthQueryKey = () => {
+    return [
+    `/v1/bookmarks/health`
+    ] as const;
+    }
+
+
+export const getHealthQueryOptions = <TData = Awaited<ReturnType<typeof health>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof health>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getHealthQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof health>>> = ({ signal }) => health(requestOptions, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof health>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type HealthQueryResult = NonNullable<Awaited<ReturnType<typeof health>>>
+export type HealthQueryError = unknown
+
+
+export function useHealth<TData = Awaited<ReturnType<typeof health>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof health>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof health>>,
+          TError,
+          Awaited<ReturnType<typeof health>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useHealth<TData = Awaited<ReturnType<typeof health>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof health>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof health>>,
+          TError,
+          Awaited<ReturnType<typeof health>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useHealth<TData = Awaited<ReturnType<typeof health>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof health>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useHealth<TData = Awaited<ReturnType<typeof health>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof health>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getHealthQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const checkHealth = (
+
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<TaskQueuedResponse>(
+      {url: `/v1/bookmarks/health/check`, method: 'POST', signal
+    },
+      options);
+    }
+
+
+
+
+export const getCheckHealthMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkHealth>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof checkHealth>>, TError,void, TContext> => {
+
+const mutationKey = ['checkHealth'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof checkHealth>>, void> = () => {
+
+
+          return  checkHealth(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CheckHealthMutationResult = NonNullable<Awaited<ReturnType<typeof checkHealth>>>
+
+    export type CheckHealthMutationError = unknown
+
+    export const useCheckHealth = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkHealth>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof checkHealth>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getCheckHealthMutationOptions(options), queryClient);
+    }
+    export const getPreviews = (
     params: GetPreviewsParams,
  options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
@@ -594,7 +894,295 @@ export function useGetPreviews<TData = Awaited<ReturnType<typeof getPreviews>>, 
 
 
 
-export const getBookmark = (
+export const proxyImageHandler = (
+    params: ProxyImageHandlerParams,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<void>(
+      {url: `/v1/bookmarks/proxy-image`, method: 'GET',
+        params, signal
+    },
+      options);
+    }
+
+
+
+
+export const getProxyImageHandlerQueryKey = (params?: ProxyImageHandlerParams,) => {
+    return [
+    `/v1/bookmarks/proxy-image`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getProxyImageHandlerQueryOptions = <TData = Awaited<ReturnType<typeof proxyImageHandler>>, TError = unknown>(params: ProxyImageHandlerParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof proxyImageHandler>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getProxyImageHandlerQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof proxyImageHandler>>> = ({ signal }) => proxyImageHandler(params, requestOptions, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof proxyImageHandler>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ProxyImageHandlerQueryResult = NonNullable<Awaited<ReturnType<typeof proxyImageHandler>>>
+export type ProxyImageHandlerQueryError = unknown
+
+
+export function useProxyImageHandler<TData = Awaited<ReturnType<typeof proxyImageHandler>>, TError = unknown>(
+ params: ProxyImageHandlerParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof proxyImageHandler>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof proxyImageHandler>>,
+          TError,
+          Awaited<ReturnType<typeof proxyImageHandler>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useProxyImageHandler<TData = Awaited<ReturnType<typeof proxyImageHandler>>, TError = unknown>(
+ params: ProxyImageHandlerParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof proxyImageHandler>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof proxyImageHandler>>,
+          TError,
+          Awaited<ReturnType<typeof proxyImageHandler>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useProxyImageHandler<TData = Awaited<ReturnType<typeof proxyImageHandler>>, TError = unknown>(
+ params: ProxyImageHandlerParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof proxyImageHandler>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useProxyImageHandler<TData = Awaited<ReturnType<typeof proxyImageHandler>>, TError = unknown>(
+ params: ProxyImageHandlerParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof proxyImageHandler>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getProxyImageHandlerQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const reorder = (
+    reorderRequest: ReorderRequest,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<AffectedResponse>(
+      {url: `/v1/bookmarks/reorder`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: reorderRequest, signal
+    },
+      options);
+    }
+
+
+
+
+export const getReorderMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reorder>>, TError,{data: ReorderRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof reorder>>, TError,{data: ReorderRequest}, TContext> => {
+
+const mutationKey = ['reorder'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reorder>>, {data: ReorderRequest}> = (props) => {
+          const {data} = props ?? {};
+
+          return  reorder(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReorderMutationResult = NonNullable<Awaited<ReturnType<typeof reorder>>>
+    export type ReorderMutationBody = ReorderRequest
+    export type ReorderMutationError = unknown
+
+    export const useReorder = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reorder>>, TError,{data: ReorderRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof reorder>>,
+        TError,
+        {data: ReorderRequest},
+        TContext
+      > => {
+      return useMutation(getReorderMutationOptions(options), queryClient);
+    }
+    export const scrape = (
+    params: ScrapeParams,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<ScrapeResponse>(
+      {url: `/v1/bookmarks/scrape`, method: 'GET',
+        params, signal
+    },
+      options);
+    }
+
+
+
+
+export const getScrapeQueryKey = (params?: ScrapeParams,) => {
+    return [
+    `/v1/bookmarks/scrape`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getScrapeQueryOptions = <TData = Awaited<ReturnType<typeof scrape>>, TError = unknown>(params: ScrapeParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof scrape>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getScrapeQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof scrape>>> = ({ signal }) => scrape(params, requestOptions, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof scrape>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ScrapeQueryResult = NonNullable<Awaited<ReturnType<typeof scrape>>>
+export type ScrapeQueryError = unknown
+
+
+export function useScrape<TData = Awaited<ReturnType<typeof scrape>>, TError = unknown>(
+ params: ScrapeParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof scrape>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof scrape>>,
+          TError,
+          Awaited<ReturnType<typeof scrape>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useScrape<TData = Awaited<ReturnType<typeof scrape>>, TError = unknown>(
+ params: ScrapeParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof scrape>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof scrape>>,
+          TError,
+          Awaited<ReturnType<typeof scrape>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useScrape<TData = Awaited<ReturnType<typeof scrape>>, TError = unknown>(
+ params: ScrapeParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof scrape>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useScrape<TData = Awaited<ReturnType<typeof scrape>>, TError = unknown>(
+ params: ScrapeParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof scrape>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getScrapeQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const emptyTrash = (
+
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<AffectedResponse>(
+      {url: `/v1/bookmarks/trash/empty`, method: 'DELETE', signal
+    },
+      options);
+    }
+
+
+
+
+export const getEmptyTrashMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof emptyTrash>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof emptyTrash>>, TError,void, TContext> => {
+
+const mutationKey = ['emptyTrash'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof emptyTrash>>, void> = () => {
+
+
+          return  emptyTrash(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EmptyTrashMutationResult = NonNullable<Awaited<ReturnType<typeof emptyTrash>>>
+
+    export type EmptyTrashMutationError = unknown
+
+    export const useEmptyTrash = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof emptyTrash>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof emptyTrash>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getEmptyTrashMutationOptions(options), queryClient);
+    }
+    export const getBookmark = (
     id: string,
  options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
@@ -850,4 +1438,175 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getCheckLinkHandlerMutationOptions(options), queryClient);
+    }
+    export const saveDrawing = (
+    id: string,
+    drawingRequest: DrawingRequest,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<IdResponse>(
+      {url: `/v1/bookmarks/${id}/drawing`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: drawingRequest, signal
+    },
+      options);
+    }
+
+
+
+
+export const getSaveDrawingMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveDrawing>>, TError,{id: string;data: DrawingRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveDrawing>>, TError,{id: string;data: DrawingRequest}, TContext> => {
+
+const mutationKey = ['saveDrawing'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveDrawing>>, {id: string;data: DrawingRequest}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  saveDrawing(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveDrawingMutationResult = NonNullable<Awaited<ReturnType<typeof saveDrawing>>>
+    export type SaveDrawingMutationBody = DrawingRequest
+    export type SaveDrawingMutationError = unknown
+
+    export const useSaveDrawing = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveDrawing>>, TError,{id: string;data: DrawingRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof saveDrawing>>,
+        TError,
+        {id: string;data: DrawingRequest},
+        TContext
+      > => {
+      return useMutation(getSaveDrawingMutationOptions(options), queryClient);
+    }
+    export const permanent = (
+    id: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<AffectedResponse>(
+      {url: `/v1/bookmarks/${id}/permanent`, method: 'DELETE', signal
+    },
+      options);
+    }
+
+
+
+
+export const getPermanentMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof permanent>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof permanent>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['permanent'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof permanent>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  permanent(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PermanentMutationResult = NonNullable<Awaited<ReturnType<typeof permanent>>>
+
+    export type PermanentMutationError = unknown
+
+    export const usePermanent = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof permanent>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof permanent>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getPermanentMutationOptions(options), queryClient);
+    }
+    export const restore = (
+    id: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<AffectedResponse>(
+      {url: `/v1/bookmarks/${id}/restore`, method: 'POST', signal
+    },
+      options);
+    }
+
+
+
+
+export const getRestoreMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof restore>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof restore>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['restore'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof restore>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  restore(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RestoreMutationResult = NonNullable<Awaited<ReturnType<typeof restore>>>
+
+    export type RestoreMutationError = unknown
+
+    export const useRestore = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof restore>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof restore>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getRestoreMutationOptions(options), queryClient);
     }

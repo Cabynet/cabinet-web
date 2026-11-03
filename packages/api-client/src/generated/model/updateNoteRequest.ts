@@ -8,11 +8,19 @@
 import type { UpdateNoteRequestDocument } from './updateNoteRequestDocument.js';
 
 export interface UpdateNoteRequest {
-  base_revision: number;
+  baseRevision: number;
   /** @nullable */
   document?: UpdateNoteRequestDocument;
   /** @nullable */
-  plain_text?: string | null;
+  folderId?: string | null;
   /** @nullable */
-  save_id?: string | null;
+  plainText?: string | null;
+  /** @nullable */
+  saveId?: string | null;
+  /** @nullable */
+  setFolder?: boolean | null;
+  /** @nullable */
+  tags?: string[] | null;
+  /** @nullable */
+  title?: string | null;
 }

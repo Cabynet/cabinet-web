@@ -7,8 +7,8 @@
  */
 
 export interface TagDto {
-  bookmark_count: number;
-  created_at: string;
+  bookmarkCount: number;
+  createdAt: string;
   id: string;
   name: string;
   slug: string;

@@ -8,7 +8,7 @@
 
 export interface AuthUser {
   /** @nullable */
-  avatar_url?: string | null;
+  avatarUrl?: string | null;
   email: string;
   id: string;
   name: string;

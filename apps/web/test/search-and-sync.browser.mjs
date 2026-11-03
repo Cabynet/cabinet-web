@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { mkdir } from "node:fs/promises"
 import { chromium, expect } from "@playwright/test"
-import { cabinetResponse, bookmarks } from "./fixtures/cabinet-data.mjs"
+import { cabinetResponse, bookmarks, apiBookmark } from "./fixtures/cabinet-data.mjs"
 const origin = process.env.WEB_URL || "http://localhost:3000"
 const noteId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 const requests = [], writes = [], errors = []
@@ -21,14 +21,14 @@ try {
       const body = request.postDataJSON()
       writes.push(body)
       if (offline) return reply({ message: "Offline fixture" }, 503)
-      if (note.noteSaveId === body.saveId) return reply({ data: note })
-      if (body.baseRevision !== note.noteRevision) return reply({ message: "Conflict fixture" }, 409)
-      note = { ...note, ...body, noteRevision: note.noteRevision + 1, noteSaveId: body.saveId }
+      if (note.noteSaveId === body.saveId) return reply({ revision: note.noteRevision })
+      if (body.baseRevision !== note.noteRevision) return reply({ error: { message: "Conflict fixture" } }, 409)
+      note = { ...note, title: body.title, notes: body.plainText, noteDocument: body.document, noteRevision: note.noteRevision + 1, noteSaveId: body.saveId }
       if (loseResponse) { loseResponse = false; return route.abort("failed") }
-      return reply({ data: note })
+      return reply({ revision: note.noteRevision })
     }
-    if (path.endsWith(`/bookmarks/${noteId}`)) return reply({ data: note })
-    if (path.endsWith("/bookmarks")) return reply({ data: { data: bookmarks.map((item) => ({ ...item, imageUrl: null })), totalCount: bookmarks.length, nextCursor: null } })
+    if (path.endsWith(`/bookmarks/${noteId}`)) return reply(apiBookmark(note))
+    if (path.endsWith("/bookmarks")) return reply({ items: bookmarks.map((item) => apiBookmark({ ...item, imageUrl: null })), totalCount: bookmarks.length, nextCursor: null })
     return reply(cabinetResponse(url.href))
   })
   const page = await context.newPage()

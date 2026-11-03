@@ -8,6 +8,6 @@
 
 export interface DuplicateCleanupResponse {
   /** @minimum 0 */
-  cleaned_items: number;
+  cleanedItems: number;
   message: string;
 }

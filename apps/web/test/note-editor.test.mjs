@@ -4,6 +4,8 @@ import { NoteAutosave } from "../src/lib/note-autosave.ts"
 import {
   legacyNoteToDocument,
   parseNoteDraft,
+  tiptapToDocument,
+  isTiptapDocument,
 } from "../src/lib/note-document.ts"
 
 const snapshot = (title) => ({
@@ -23,12 +25,12 @@ test("legacy notes retain literal markup, blank lines, and Unicode", () => {
   const document = legacyNoteToDocument(
     '# Old note\r\n\r\n<script>alert("no")</script> & 日本語'
   )
-  assert.equal(document.type, "doc")
-  assert.equal(document.content.length, 3)
-  assert.equal(document.content[0].content[0].text, "# Old note")
-  assert.equal(document.content[1].content, undefined)
+  assert.equal(document.root.type, "root")
+  assert.equal(document.root.children.length, 3)
+  assert.equal(document.root.children[0].children[0].text, "# Old note")
+  assert.deepEqual(document.root.children[1].children, [])
   assert.equal(
-    document.content[2].content[0].text,
+    document.root.children[2].children[0].text,
     '<script>alert("no")</script> & 日本語'
   )
 })
@@ -141,4 +143,37 @@ test("a failed earlier request does not replace edits made while it was saving",
   assert.equal(await queue.flush(), true)
   assert.deepEqual(saved, ["Newest"])
   queue.dispose()
+})
+
+test("TipTap notes convert to Lexical without losing formatting", () => {
+  const doc = {
+    type: "doc",
+    content: [
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Title" }] },
+      { type: "paragraph", content: [
+        { type: "text", text: "bold", marks: [{ type: "bold" }, { type: "italic" }] },
+        { type: "text", text: "site", marks: [{ type: "link", attrs: { href: "https://a.test" } }] },
+      ] },
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "one" }] }, { type: "orderedList", content: [{ type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "nested" }] }] }] }] },
+      ] },
+      { type: "taskList", content: [{ type: "taskItem", attrs: { checked: true }, content: [{ type: "paragraph", content: [{ type: "text", text: "done" }] }] }] },
+      { type: "codeBlock", content: [{ type: "text", text: "a\nb" }] },
+      { type: "horizontalRule" },
+      { type: "image", attrs: { src: "https://i.test/x.png", alt: "x" } },
+      { type: "mystery", content: [{ type: "text", text: "kept" }] },
+    ],
+  }
+  assert.ok(isTiptapDocument(doc))
+  const { children } = tiptapToDocument(doc).root
+  assert.deepEqual(children.map((c) => c.type), ["heading", "paragraph", "list", "list", "code", "horizontalrule", "paragraph", "paragraph"])
+  assert.equal(children[0].tag, "h2")
+  assert.equal(children[1].children[0].format, 3)
+  assert.equal(children[1].children[1].type, "link")
+  assert.deepEqual(children[2].children.map((c) => c.type), ["listitem", "listitem"])
+  assert.equal(children[2].children[1].children[0].listType, "number")
+  assert.equal(children[3].children[0].checked, true)
+  assert.equal(children[6].children[0].src, "https://i.test/x.png")
+  assert.equal(children[7].children[0].text, "kept")
+  assert.equal(tiptapToDocument({ type: "doc", content: [] }).root.children.length, 1)
 })

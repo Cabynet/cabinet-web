@@ -10,7 +10,7 @@ export type ListBookmarksParams = {
 /**
  * @nullable
  */
-folder_id?: string | null;
+folderId?: string | null;
 /**
  * @nullable
  */
@@ -22,11 +22,47 @@ domain?: string | null;
 /**
  * @nullable
  */
-is_archived?: boolean | null;
+isArchived?: boolean | null;
 /**
  * @nullable
  */
-is_favorite?: boolean | null;
+isFavorite?: boolean | null;
+/**
+ * @nullable
+ */
+trash?: boolean | null;
+/**
+ * @nullable
+ */
+status?: string | null;
+/**
+ * @nullable
+ */
+search?: string | null;
+/**
+ * @nullable
+ */
+type?: string | null;
+/**
+ * @nullable
+ */
+contentType?: string | null;
+/**
+ * @nullable
+ */
+addedAfter?: string | null;
+/**
+ * @nullable
+ */
+addedBefore?: string | null;
+/**
+ * @nullable
+ */
+sort?: string | null;
+/**
+ * @nullable
+ */
+summary?: boolean | null;
 /**
  * @nullable
  */

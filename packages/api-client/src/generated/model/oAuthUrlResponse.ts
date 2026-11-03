@@ -7,7 +7,7 @@
  */
 
 export interface OAuthUrlResponse {
-  authorization_url: string;
+  authorizationUrl: string;
   provider: string;
   state: string;
 }

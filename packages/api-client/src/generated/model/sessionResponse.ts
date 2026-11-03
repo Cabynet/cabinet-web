@@ -8,7 +8,7 @@
 import type { AuthUser } from './authUser.js';
 
 export interface SessionResponse {
-  expires_at: string;
+  expiresAt: string;
   token: string;
   user: AuthUser;
 }

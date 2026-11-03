@@ -11,7 +11,7 @@ q: string;
 /**
  * @nullable
  */
-folder_id?: string | null;
+folderId?: string | null;
 /**
  * @nullable
  */

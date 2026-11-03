@@ -10,13 +10,18 @@ export function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
+  const cookieHeader = request.headers.get("cookie") || ""
   const hasSession =
+    request.cookies.has("cabinet_session") ||
     request.cookies.has("cabinet.session_token") ||
     request.cookies.has("__Secure-cabinet.session_token") ||
-    request.cookies.has("session_token")
+    request.cookies.has("session_token") ||
+    cookieHeader.includes("cabinet_session=") ||
+    cookieHeader.includes("session_token=")
 
   if (!hasSession && request.nextUrl.pathname.startsWith("/cabinet")) {
     const loginUrl = new URL("/login", request.url)
+    loginUrl.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search)
     return NextResponse.redirect(loginUrl)
   }
 

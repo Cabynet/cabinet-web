@@ -7,14 +7,15 @@
  */
 
 export interface FolderDto {
-  created_at: string;
+  access: string;
+  createdAt: string;
   /** @nullable */
   description?: string | null;
   id: string;
   name: string;
   /** @nullable */
-  parent_id?: string | null;
+  parentId?: string | null;
   position: number;
-  share_enabled: boolean;
-  updated_at: string;
+  shareEnabled: boolean;
+  updatedAt: string;
 }

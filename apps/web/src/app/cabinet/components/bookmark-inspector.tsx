@@ -79,14 +79,20 @@ export const BookmarkInspector = React.forwardRef<BookmarkInspectorHandle, Bookm
     if (!bookmark || readOnly) return
     let active = true
     try { setRecovery(draftKey ? parseBookmarkDraft(localStorage.getItem(draftKey)) : null) } catch { setBackupUnavailable(true) }
+    let revision = bookmark.noteRevision ?? 0
+    let attempt: { snapshot: BookmarkDraft; saveId: string } | null = null
     const autosave = new NoteAutosave<BookmarkDraft>(async (snapshot) => {
-      await updater.current(bookmark.id, limited
+      if (attempt?.snapshot !== snapshot) attempt = { snapshot, saveId: crypto.randomUUID() }
+      const saved = await updater.current(bookmark.id, limited
         ? { title: snapshot.title.trim(), description: snapshot.description }
         : {
             title: snapshot.title.trim(), description: snapshot.description, notes: snapshot.notes,
+            baseRevision: revision, saveId: attempt.saveId,
             folderId: snapshot.folderId === 'none' ? null : snapshot.folderId,
             tags: snapshot.tags.map((tag) => tag.trim().replace(/^#/, '').toLowerCase()).filter(Boolean),
           })
+      if (saved?.noteRevision !== undefined) revision = saved.noteRevision
+      attempt = null
       if (draftKey && current.current === snapshot) {
         try {
           if (localStorage.getItem(draftKey) === JSON.stringify(snapshot)) localStorage.removeItem(draftKey)

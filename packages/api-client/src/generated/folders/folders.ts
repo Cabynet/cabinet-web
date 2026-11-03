@@ -25,10 +25,20 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AcceptedInvitationResponse,
+  CollaborationResponse,
+  CopiedShareResponse,
   CreateFolderRequest,
   FolderDto,
+  InvitationTokenResponse,
+  MemberAddedResponse,
+  MemberRequest,
   PublicShareResponse,
-  UpdateFolderRequest
+  RemovedResponse,
+  RoleRequest,
+  ShareTokenResponse,
+  UpdateFolderRequest,
+  UpdatedResponse
 } from '../model';
 
 import { customInstance } from '../../custom-instance.js';
@@ -197,6 +207,62 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getCreateFolderMutationOptions(options), queryClient);
     }
+    export const accept = (
+    token: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<AcceptedInvitationResponse>(
+      {url: `/v1/folders/invitations/${token}/accept`, method: 'POST', signal
+    },
+      options);
+    }
+
+
+
+
+export const getAcceptMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof accept>>, TError,{token: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof accept>>, TError,{token: string}, TContext> => {
+
+const mutationKey = ['accept'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof accept>>, {token: string}> = (props) => {
+          const {token} = props ?? {};
+
+          return  accept(token,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AcceptMutationResult = NonNullable<Awaited<ReturnType<typeof accept>>>
+
+    export type AcceptMutationError = unknown
+
+    export const useAccept = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof accept>>, TError,{token: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof accept>>,
+        TError,
+        {token: string},
+        TContext
+      > => {
+      return useMutation(getAcceptMutationOptions(options), queryClient);
+    }
     export const updateFolder = (
     id: string,
     updateFolderRequest: UpdateFolderRequest,
@@ -312,13 +378,535 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getDeleteFolderMutationOptions(options), queryClient);
     }
-    export const enableShare = (
+    export const collaboration = (
     id: string,
  options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
 
 
-      return customInstance<void>(
+      return customInstance<CollaborationResponse>(
+      {url: `/v1/folders/${id}/collaboration`, method: 'GET', signal
+    },
+      options);
+    }
+
+
+
+
+export const getCollaborationQueryKey = (id: string,) => {
+    return [
+    `/v1/folders/${id}/collaboration`
+    ] as const;
+    }
+
+
+export const getCollaborationQueryOptions = <TData = Awaited<ReturnType<typeof collaboration>>, TError = unknown>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof collaboration>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getCollaborationQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof collaboration>>> = ({ signal }) => collaboration(id, requestOptions, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof collaboration>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type CollaborationQueryResult = NonNullable<Awaited<ReturnType<typeof collaboration>>>
+export type CollaborationQueryError = unknown
+
+
+export function useCollaboration<TData = Awaited<ReturnType<typeof collaboration>>, TError = unknown>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof collaboration>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof collaboration>>,
+          TError,
+          Awaited<ReturnType<typeof collaboration>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCollaboration<TData = Awaited<ReturnType<typeof collaboration>>, TError = unknown>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof collaboration>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof collaboration>>,
+          TError,
+          Awaited<ReturnType<typeof collaboration>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCollaboration<TData = Awaited<ReturnType<typeof collaboration>>, TError = unknown>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof collaboration>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useCollaboration<TData = Awaited<ReturnType<typeof collaboration>>, TError = unknown>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof collaboration>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getCollaborationQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const invite = (
+    id: string,
+    roleRequest: RoleRequest,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<InvitationTokenResponse>(
+      {url: `/v1/folders/${id}/invitation`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: roleRequest, signal
+    },
+      options);
+    }
+
+
+
+
+export const getInviteMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof invite>>, TError,{id: string;data: RoleRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof invite>>, TError,{id: string;data: RoleRequest}, TContext> => {
+
+const mutationKey = ['invite'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof invite>>, {id: string;data: RoleRequest}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  invite(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type InviteMutationResult = NonNullable<Awaited<ReturnType<typeof invite>>>
+    export type InviteMutationBody = RoleRequest
+    export type InviteMutationError = unknown
+
+    export const useInvite = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof invite>>, TError,{id: string;data: RoleRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof invite>>,
+        TError,
+        {id: string;data: RoleRequest},
+        TContext
+      > => {
+      return useMutation(getInviteMutationOptions(options), queryClient);
+    }
+    export const removeInvite = (
+    id: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<RemovedResponse>(
+      {url: `/v1/folders/${id}/invitation`, method: 'DELETE', signal
+    },
+      options);
+    }
+
+
+
+
+export const getRemoveInviteMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeInvite>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof removeInvite>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['removeInvite'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeInvite>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  removeInvite(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveInviteMutationResult = NonNullable<Awaited<ReturnType<typeof removeInvite>>>
+
+    export type RemoveInviteMutationError = unknown
+
+    export const useRemoveInvite = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeInvite>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof removeInvite>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getRemoveInviteMutationOptions(options), queryClient);
+    }
+    export const changeInvite = (
+    id: string,
+    roleRequest: RoleRequest,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<UpdatedResponse>(
+      {url: `/v1/folders/${id}/invitation`, method: 'PATCH',
+      headers: {'Content-Type': 'application/json', },
+      data: roleRequest, signal
+    },
+      options);
+    }
+
+
+
+
+export const getChangeInviteMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof changeInvite>>, TError,{id: string;data: RoleRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof changeInvite>>, TError,{id: string;data: RoleRequest}, TContext> => {
+
+const mutationKey = ['changeInvite'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof changeInvite>>, {id: string;data: RoleRequest}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  changeInvite(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ChangeInviteMutationResult = NonNullable<Awaited<ReturnType<typeof changeInvite>>>
+    export type ChangeInviteMutationBody = RoleRequest
+    export type ChangeInviteMutationError = unknown
+
+    export const useChangeInvite = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof changeInvite>>, TError,{id: string;data: RoleRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof changeInvite>>,
+        TError,
+        {id: string;data: RoleRequest},
+        TContext
+      > => {
+      return useMutation(getChangeInviteMutationOptions(options), queryClient);
+    }
+    export const addMember = (
+    id: string,
+    memberRequest: MemberRequest,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<MemberAddedResponse>(
+      {url: `/v1/folders/${id}/members`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: memberRequest, signal
+    },
+      options);
+    }
+
+
+
+
+export const getAddMemberMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addMember>>, TError,{id: string;data: MemberRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof addMember>>, TError,{id: string;data: MemberRequest}, TContext> => {
+
+const mutationKey = ['addMember'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addMember>>, {id: string;data: MemberRequest}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  addMember(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddMemberMutationResult = NonNullable<Awaited<ReturnType<typeof addMember>>>
+    export type AddMemberMutationBody = MemberRequest
+    export type AddMemberMutationError = unknown
+
+    export const useAddMember = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addMember>>, TError,{id: string;data: MemberRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof addMember>>,
+        TError,
+        {id: string;data: MemberRequest},
+        TContext
+      > => {
+      return useMutation(getAddMemberMutationOptions(options), queryClient);
+    }
+    export const removeMember = (
+    id: string,
+    member: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<RemovedResponse>(
+      {url: `/v1/folders/${id}/members/${member}`, method: 'DELETE', signal
+    },
+      options);
+    }
+
+
+
+
+export const getRemoveMemberMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeMember>>, TError,{id: string;member: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof removeMember>>, TError,{id: string;member: string}, TContext> => {
+
+const mutationKey = ['removeMember'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeMember>>, {id: string;member: string}> = (props) => {
+          const {id,member} = props ?? {};
+
+          return  removeMember(id,member,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveMemberMutationResult = NonNullable<Awaited<ReturnType<typeof removeMember>>>
+
+    export type RemoveMemberMutationError = unknown
+
+    export const useRemoveMember = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeMember>>, TError,{id: string;member: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof removeMember>>,
+        TError,
+        {id: string;member: string},
+        TContext
+      > => {
+      return useMutation(getRemoveMemberMutationOptions(options), queryClient);
+    }
+    export const changeMember = (
+    id: string,
+    member: string,
+    roleRequest: RoleRequest,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<UpdatedResponse>(
+      {url: `/v1/folders/${id}/members/${member}`, method: 'PATCH',
+      headers: {'Content-Type': 'application/json', },
+      data: roleRequest, signal
+    },
+      options);
+    }
+
+
+
+
+export const getChangeMemberMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof changeMember>>, TError,{id: string;member: string;data: RoleRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof changeMember>>, TError,{id: string;member: string;data: RoleRequest}, TContext> => {
+
+const mutationKey = ['changeMember'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof changeMember>>, {id: string;member: string;data: RoleRequest}> = (props) => {
+          const {id,member,data} = props ?? {};
+
+          return  changeMember(id,member,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ChangeMemberMutationResult = NonNullable<Awaited<ReturnType<typeof changeMember>>>
+    export type ChangeMemberMutationBody = RoleRequest
+    export type ChangeMemberMutationError = unknown
+
+    export const useChangeMember = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof changeMember>>, TError,{id: string;member: string;data: RoleRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof changeMember>>,
+        TError,
+        {id: string;member: string;data: RoleRequest},
+        TContext
+      > => {
+      return useMutation(getChangeMemberMutationOptions(options), queryClient);
+    }
+    export const shareStatus = (
+    id: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<ShareTokenResponse>(
+      {url: `/v1/folders/${id}/share`, method: 'GET', signal
+    },
+      options);
+    }
+
+
+
+
+export const getShareStatusQueryKey = (id: string,) => {
+    return [
+    `/v1/folders/${id}/share`
+    ] as const;
+    }
+
+
+export const getShareStatusQueryOptions = <TData = Awaited<ReturnType<typeof shareStatus>>, TError = unknown>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof shareStatus>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getShareStatusQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof shareStatus>>> = ({ signal }) => shareStatus(id, requestOptions, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof shareStatus>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ShareStatusQueryResult = NonNullable<Awaited<ReturnType<typeof shareStatus>>>
+export type ShareStatusQueryError = unknown
+
+
+export function useShareStatus<TData = Awaited<ReturnType<typeof shareStatus>>, TError = unknown>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof shareStatus>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof shareStatus>>,
+          TError,
+          Awaited<ReturnType<typeof shareStatus>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useShareStatus<TData = Awaited<ReturnType<typeof shareStatus>>, TError = unknown>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof shareStatus>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof shareStatus>>,
+          TError,
+          Awaited<ReturnType<typeof shareStatus>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useShareStatus<TData = Awaited<ReturnType<typeof shareStatus>>, TError = unknown>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof shareStatus>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useShareStatus<TData = Awaited<ReturnType<typeof shareStatus>>, TError = unknown>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof shareStatus>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getShareStatusQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const enableShare = (
+    id: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<ShareTokenResponse>(
       {url: `/v1/folders/${id}/share`, method: 'POST', signal
     },
       options);
@@ -374,7 +962,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 ) => {
 
 
-      return customInstance<void>(
+      return customInstance<ShareTokenResponse>(
       {url: `/v1/folders/${id}/share`, method: 'DELETE', signal
     },
       options);
@@ -510,3 +1098,59 @@ export function useGetPublicShare<TData = Awaited<ReturnType<typeof getPublicSha
 
 
 
+export const copyPublicShare = (
+    token: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<CopiedShareResponse>(
+      {url: `/v1/share/${token}/copy`, method: 'POST', signal
+    },
+      options);
+    }
+
+
+
+
+export const getCopyPublicShareMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof copyPublicShare>>, TError,{token: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof copyPublicShare>>, TError,{token: string}, TContext> => {
+
+const mutationKey = ['copyPublicShare'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof copyPublicShare>>, {token: string}> = (props) => {
+          const {token} = props ?? {};
+
+          return  copyPublicShare(token,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CopyPublicShareMutationResult = NonNullable<Awaited<ReturnType<typeof copyPublicShare>>>
+
+    export type CopyPublicShareMutationError = unknown
+
+    export const useCopyPublicShare = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof copyPublicShare>>, TError,{token: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof copyPublicShare>>,
+        TError,
+        {token: string},
+        TContext
+      > => {
+      return useMutation(getCopyPublicShareMutationOptions(options), queryClient);
+    }

@@ -9,6 +9,10 @@ const walk = (directory) => readdirSync(directory, { withFileTypes: true }).flat
 // Flat internal seams are intentional. A new exception requires a design review.
 const flat = {
   "components/ui/input-group.tsx": { "rounded-none": 2 },
+  // The editor's isolated Base UI controls have the same joined input/calendar seams.
+  "components/editor/ui/input-group.tsx": { "rounded-none": 2 },
+  "components/editor/ui/toggle-group.tsx": { "group-data-[spacing=0]/toggle-group:rounded-none": 1 },
+  "components/editor/ui/calendar.tsx": { "rounded-none": 1, "data-[selected=true]:rounded-none": 1, "data-[range-middle=true]:rounded-none": 1 },
   "components/ui/card.tsx": { "*:[img:first-child]:rounded-none": 1, "*:[img:last-child]:rounded-none": 1 },
   "components/ui/tooltip.tsx": { "rounded-none": 1 },
   "components/ui/tabs.tsx": { "data-[variant=line]:rounded-none": 1 },

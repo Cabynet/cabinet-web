@@ -10,12 +10,15 @@ export interface BookmarkPreviewDto {
   /** @nullable */
   description?: string | null;
   /** @nullable */
-  favicon_url?: string | null;
+  faviconUrl?: string | null;
   id: string;
-  metadata_status: string;
+  metadataStatus: string;
   /** @nullable */
-  site_name?: string | null;
+  rawUrl?: string | null;
   /** @nullable */
-  thumbnail_url?: string | null;
+  siteName?: string | null;
+  /** @nullable */
+  thumbnailUrl?: string | null;
   title: string;
+  updatedAt: string;
 }

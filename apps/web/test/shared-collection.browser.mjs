@@ -10,10 +10,21 @@ import { chromium, expect } from "@playwright/test"
 
 const root = fileURLToPath(new URL("../", import.meta.url))
 let script = "", styles = "", copyStatus = 500, copyCalls = 0
+const signRequests = []
 const folderId = "11111111-1111-4111-8111-111111111111"
 const server = createServer((req, res) => {
   if (req.url === "/app.js") { res.setHeader("Content-Type", "text/javascript"); res.end(script) }
   else if (req.url === "/style.css") { res.setHeader("Content-Type", "text/css"); res.end(styles) }
+  else if (req.method === "POST" && req.url === "/v1/bookmarks/proxy-image/sign") {
+    let body = ""
+    req.on("data", (chunk) => { body += chunk })
+    req.on("end", () => {
+      const { urls, shareToken } = JSON.parse(body)
+      signRequests.push(shareToken)
+      res.setHeader("Content-Type", "application/json")
+      res.end(JSON.stringify({ items: urls.map((url) => ({ url, signedUrl: `/v1/bookmarks/proxy-image?url=${encodeURIComponent(url)}&sig=test` })) }))
+    })
+  }
   else if (req.url.startsWith("/v1/bookmarks/proxy-image")) {
     if (req.url.includes("broken")) { res.writeHead(404); res.end(); return }
     const height = req.url.includes("color") ? 300 : 150
@@ -21,7 +32,7 @@ const server = createServer((req, res) => {
     res.end(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="${height}"><rect width="400" height="${height}" fill="${height === 300 ? '#cbd5c3' : '#c4cbd4'}"/></svg>`)
   } else if (req.url.endsWith("/copy") && req.method === "POST") {
     copyCalls++
-    setTimeout(() => { res.writeHead(copyStatus, { "Content-Type": "application/json" }); res.end(JSON.stringify({ data: { folderId, copied: 4 } })) }, 300)
+    setTimeout(() => { res.writeHead(copyStatus, { "Content-Type": "application/json" }); res.end(JSON.stringify({ folderId: folderId, copied: 4 })) }, 300)
   } else res.end('<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/style.css"></head><body><div id="root"></div><script type="module" src="/app.js"></script></body></html>')
 })
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve))
@@ -60,7 +71,7 @@ try {
   await page.getByRole("radio", { name: "List view" }).click()
   await expect(page.locator('[data-view="list"]')).toBeVisible()
   await search.fill("nothing matches")
-  await expect(page.getByText("No matching bookmarks", { exact: true })).toBeVisible()
+  await expect(page.getByText("Nothing matches", { exact: true })).toBeVisible()
   await page.getByRole("button", { name: "Clear search", exact: true }).last().click()
   await expect(page.getByRole("listitem")).toHaveCount(4)
   await page.getByRole("radio", { name: "Grid view" }).click()
@@ -75,8 +86,9 @@ try {
   await expect(page.getByRole("button", { name: "Copying…", exact: true })).toBeDisabled()
   await page.getByRole("button", { name: "Copying…", exact: true }).dispatchEvent("click")
   await expect(page.getByRole("link", { name: "Open copied collection" })).toHaveAttribute("href", `/cabinet?folder=${folderId}`)
-  await expect(page.getByText("4 bookmarks copied to your Cabinet.", { exact: true })).toBeVisible()
+  await expect(page.getByText("4 items copied to your Cabinet.", { exact: true })).toBeVisible()
   assert.equal(copyCalls, 2) // Full collection copied once, even while one result is filtered.
+  assert.ok(signRequests.length > 0 && signRequests.every((token) => token === "a".repeat(64)), "share pages sign previews with the share token")
   await page.setViewportSize({ width: 375, height: 812 })
   await search.fill("")
   await expect(page.getByRole("listitem")).toHaveCount(4)

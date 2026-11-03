@@ -7,12 +7,18 @@
  */
 
 export interface UpdateFolderRequest {
-  /** @nullable */
+  /**
+     * Absent: unchanged. null or empty: clear. Max 500 characters (checked in the service).
+     * @nullable
+     */
   description?: string | null;
   /** @nullable */
   name?: string | null;
-  /** @nullable */
-  parent_id?: string | null;
+  /**
+     * Absent: unchanged. null: move to root. uuid: new parent.
+     * @nullable
+     */
+  parentId?: string | null;
   /** @nullable */
   position?: number | null;
 }

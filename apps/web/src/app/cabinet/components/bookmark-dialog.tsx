@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useMemo } from "react"
+import React, { useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -16,30 +16,8 @@ import {
   FieldLabel,
   FieldError,
 } from "@/components/ui/field"
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-} from "@/components/ui/select"
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxList,
-  ComboboxItem,
-  ComboboxGroup,
-  ComboboxEmpty,
-  ComboboxChipsInput,
-  ComboboxAnchor,
-} from "@/components/ui/combobox"
-import {
-  TagsInput,
-  TagsInputList,
-  TagsInputInput,
-  TagsInputItem,
-} from "@/components/ui/tags-input"
+import { FolderPicker } from "./folder-picker"
+import { TagPicker } from "./tag-picker"
 import { Spinner } from "@/components/ui/spinner"
 import { ClipboardText, Sparkle } from "@phosphor-icons/react"
 import { AXIOS_INSTANCE } from "@/lib/api-client"
@@ -68,13 +46,6 @@ export function BookmarkDialog({
   const [isScraping, setIsScraping] = useState(false)
   // Others' links in a folder you edit: folder and tags belong to the author.
   const limited = !!bookmarkToEdit && itemAccess(bookmarkToEdit) !== "owner"
-  const [tagInputValue, setTagInputValue] = useState("")
-
-  const filteredTags = useMemo(() => {
-    const query = tagInputValue.trim().toLowerCase().replace(/^#/, "")
-    if (!query) return tags
-    return tags.filter((t: any) => t.name.toLowerCase().includes(query))
-  }, [tags, tagInputValue])
 
   const handleScrape = async (url: string) => {
     if (!url) return
@@ -89,8 +60,8 @@ export function BookmarkDialog({
         params: { url: targetUrl },
       })
       const data = res.data
-      if (data?.success && data?.data) {
-        const metadata = data.data
+      if (data) {
+        const metadata = data
         if (metadata.title) bookmarkForm.setFieldValue("title", metadata.title)
         if (metadata.description) bookmarkForm.setFieldValue("description", metadata.description)
       }
@@ -270,8 +241,8 @@ export function BookmarkDialog({
               }}
             />
 
-            {!limited && <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <bookmarkForm.Field
+            {!limited && <div className="flex flex-col gap-4">
+              {folders.length > 0 && <bookmarkForm.Field
                 name="folderId"
                 children={(field: any) => {
                   const isInvalid =
@@ -279,28 +250,7 @@ export function BookmarkDialog({
                   return (
                     <Field data-invalid={isInvalid}>
                       <FieldLabel htmlFor={field.name}>Folder</FieldLabel>
-                      <Select
-                        value={field.state.value || '__root__'}
-                        onValueChange={(val) => field.handleChange(val === '__root__' ? '' : val)}
-                      >
-                        <SelectTrigger
-                          id={field.name}
-                          aria-invalid={isInvalid}
-                          className="h-10 w-full rounded-md border border-input bg-background px-3 text-base text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none md:text-sm"
-                        >
-                          <SelectValue placeholder="Unfiled" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                          <SelectItem value="__root__">Unfiled</SelectItem>
-                          {folders.map((f: any) => (
-                            <SelectItem key={f.id} value={f.id}>
-                              {f.name}
-                            </SelectItem>
-                          ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
+                      <FolderPicker id={field.name} folders={folders} value={field.state.value || ""} onChange={field.handleChange} invalid={isInvalid} />
                       {isInvalid && (
                         <FieldError
                           errors={field.state.meta.errors.map((err: any) =>
@@ -311,7 +261,7 @@ export function BookmarkDialog({
                     </Field>
                   )
                 }}
-              />
+              />}
 
               <bookmarkForm.Field
                 name="tags"
@@ -320,87 +270,8 @@ export function BookmarkDialog({
                     field.state.meta.isTouched && !field.state.meta.isValid
                   return (
                     <Field data-invalid={isInvalid}>
-                      <FieldLabel htmlFor={field.name}>Tags</FieldLabel>
-                      <Combobox
-                        value={field.state.value || []}
-                        onValueChange={(val) => {
-                          const formatted = val.map((t: string) =>
-                            t.startsWith("#") ? t : `#${t}`
-                          )
-                          field.handleChange(formatted)
-                          setTagInputValue("")
-                        }}
-                        inputValue={tagInputValue}
-                        onInputValueChange={setTagInputValue}
-                      >
-                        <ComboboxAnchor className="w-full">
-                          <TagsInput
-                            value={field.state.value || []}
-                            onValueChange={(val) => {
-                              const formatted = val.map((t: string) =>
-                                t.startsWith("#") ? t : `#${t}`
-                              )
-                              field.handleChange(formatted)
-                              setTagInputValue("")
-                            }}
-                            className="w-full gap-0"
-                          >
-                            <TagsInputList className="flex min-h-10 w-full flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground focus-within:ring-1 focus-within:ring-ring">
-                              {(field.state.value || []).map((tag: string) => (
-                                <TagsInputItem
-                                  key={tag}
-                                  value={tag}
-                                  className="gap-1 rounded-sm border-border bg-muted/50 px-2 py-0.5 text-xs text-foreground"
-                                >
-                                  {tag}
-                                </TagsInputItem>
-                              ))}
-                              <ComboboxChipsInput
-                                render={
-                                  <TagsInputInput
-                                    placeholder="Select or add tags..."
-                                    className="flex-1 text-base text-foreground outline-none placeholder:text-muted-foreground focus:outline-none md:text-sm"
-                                  />
-                                }
-                              />
-                            </TagsInputList>
-                          </TagsInput>
-                        </ComboboxAnchor>
-                        <ComboboxContent className="z-50 max-h-60 w-[var(--radix-popover-trigger-width)] overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-sm">
-                          <ComboboxList className="no-scrollbar max-h-[200px] overflow-y-auto overscroll-contain">
-                            {filteredTags.length === 0 ? (
-                              <ComboboxEmpty className="py-4 text-center text-xs text-muted-foreground">
-                                {tagInputValue.trim()
-                                  ? `Press enter to create "${tagInputValue}"`
-                                  : "No tags found."}
-                              </ComboboxEmpty>
-                            ) : (
-                              <ComboboxGroup>
-                                {filteredTags.map((tag: any) => {
-                                  const tagValue = `#${tag.name}`
-                                  return (
-                                    <ComboboxItem
-                                      key={tag.id}
-                                      value={tagValue}
-                                      onSelect={() => {
-                                        const isSelected = (field.state.value || []).includes(tagValue)
-                                        const nextValue = isSelected
-                                          ? (field.state.value || []).filter((t: string) => t !== tagValue)
-                                          : [...(field.state.value || []), tagValue]
-                                        field.handleChange(nextValue)
-                                        setTagInputValue("")
-                                      }}
-                                      className="flex cursor-pointer items-center justify-between px-3 py-2 text-xs text-foreground hover:bg-muted"
-                                    >
-                                      <span>{tagValue}</span>
-                                    </ComboboxItem>
-                                  )
-                                })}
-                              </ComboboxGroup>
-                            )}
-                          </ComboboxList>
-                        </ComboboxContent>
-                      </Combobox>
+                      <FieldLabel id={`${field.name}-label`}>Tags</FieldLabel>
+                      <TagPicker value={field.state.value || []} tags={tags} onChange={field.handleChange} onBlur={field.handleBlur} invalid={isInvalid} labelId={`${field.name}-label`} />
                       {isInvalid && (
                         <FieldError
                           errors={field.state.meta.errors.map((err: any) =>

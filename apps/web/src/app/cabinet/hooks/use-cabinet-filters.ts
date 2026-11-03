@@ -26,7 +26,7 @@ function parseUrlFilters() {
   }
 }
 
-export function useCabinetFilters(folders: any[]) {
+export function useCabinetFilters(folders: { id: string; name: string }[]) {
   const initialUrl = useMemo(() => parseUrlFilters(), [])
 
   const [selectedFolderId, setSelectedFolderIdState] = useState<string | undefined>(
@@ -359,7 +359,7 @@ export function useCabinetFilters(folders: any[]) {
   const activeFilterLabel = useMemo(() => {
     if (filterTrash) return "Trash"
     if (selectedFolderId) {
-      const folder = folders.find((f: any) => f.id === selectedFolderId)
+      const folder = folders.find((f) => f.id === selectedFolderId)
       return folder ? folder.name : "Folder"
     }
     if (filterFavorite) return "Favorites"

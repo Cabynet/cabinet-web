@@ -10,7 +10,7 @@ export interface SearchQuery {
   /** @nullable */
   domain?: string | null;
   /** @nullable */
-  folder_id?: string | null;
+  folderId?: string | null;
   /** @nullable */
   limit?: number | null;
   q: string;

@@ -26,7 +26,11 @@ import type {
 
 import type {
   CreateTagRequest,
-  TagDto
+  DeletedCountResponse,
+  MergeRequest,
+  MergedResponse,
+  TagDto,
+  UpdatedResponse
 } from '../model';
 
 import { customInstance } from '../../custom-instance.js';
@@ -195,6 +199,62 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getCreateTagMutationOptions(options), queryClient);
     }
+    export const deleteUnused = (
+
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<DeletedCountResponse>(
+      {url: `/v1/tags/unused`, method: 'DELETE', signal
+    },
+      options);
+    }
+
+
+
+
+export const getDeleteUnusedMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUnused>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteUnused>>, TError,void, TContext> => {
+
+const mutationKey = ['deleteUnused'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteUnused>>, void> = () => {
+
+
+          return  deleteUnused(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteUnusedMutationResult = NonNullable<Awaited<ReturnType<typeof deleteUnused>>>
+
+    export type DeleteUnusedMutationError = unknown
+
+    export const useDeleteUnused = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUnused>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteUnused>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDeleteUnusedMutationOptions(options), queryClient);
+    }
     export const deleteTag = (
     id: string,
  options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
@@ -250,4 +310,122 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getDeleteTagMutationOptions(options), queryClient);
+    }
+    export const renameTag = (
+    id: string,
+    createTagRequest: CreateTagRequest,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<UpdatedResponse>(
+      {url: `/v1/tags/${id}`, method: 'PATCH',
+      headers: {'Content-Type': 'application/json', },
+      data: createTagRequest, signal
+    },
+      options);
+    }
+
+
+
+
+export const getRenameTagMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renameTag>>, TError,{id: string;data: CreateTagRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof renameTag>>, TError,{id: string;data: CreateTagRequest}, TContext> => {
+
+const mutationKey = ['renameTag'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof renameTag>>, {id: string;data: CreateTagRequest}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  renameTag(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RenameTagMutationResult = NonNullable<Awaited<ReturnType<typeof renameTag>>>
+    export type RenameTagMutationBody = CreateTagRequest
+    export type RenameTagMutationError = unknown
+
+    export const useRenameTag = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renameTag>>, TError,{id: string;data: CreateTagRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof renameTag>>,
+        TError,
+        {id: string;data: CreateTagRequest},
+        TContext
+      > => {
+      return useMutation(getRenameTagMutationOptions(options), queryClient);
+    }
+    export const mergeTag = (
+    id: string,
+    mergeRequest: MergeRequest,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<MergedResponse>(
+      {url: `/v1/tags/${id}/merge`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: mergeRequest, signal
+    },
+      options);
+    }
+
+
+
+
+export const getMergeTagMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mergeTag>>, TError,{id: string;data: MergeRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof mergeTag>>, TError,{id: string;data: MergeRequest}, TContext> => {
+
+const mutationKey = ['mergeTag'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof mergeTag>>, {id: string;data: MergeRequest}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  mergeTag(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MergeTagMutationResult = NonNullable<Awaited<ReturnType<typeof mergeTag>>>
+    export type MergeTagMutationBody = MergeRequest
+    export type MergeTagMutationError = unknown
+
+    export const useMergeTag = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mergeTag>>, TError,{id: string;data: MergeRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof mergeTag>>,
+        TError,
+        {id: string;data: MergeRequest},
+        TContext
+      > => {
+      return useMutation(getMergeTagMutationOptions(options), queryClient);
     }

@@ -6,9 +6,9 @@ Cabinet is a personal library for bookmarks, notes, and saved reading. It is one
 
 - Save links immediately with client metadata; fill missing preview fields in a deduplicated background worker without overwriting user edits.
 - Upload PDF documents and images directly to Cloudflare R2 storage; organize them in the library and embed uploaded images inside note editor blocks.
-- Write notes on a dedicated page with an Editorcn/Tiptap block editor, slash commands, draggable blocks, rich text, checklists, code blocks, resizable tables, and embedded or URL images.
+- Write notes in a Notion-style Lexical editor: slash commands, draggable blocks, contextual formatting, tables, images, equations, columns, collapsibles, polls, cards, reviews, mentions, emoji, and embeds.
 - Autosave note changes to the account, with visible save errors, retries, and a browser-local draft backup.
-- Organize bookmarks and notes with folders and tags.
+- Organize bookmarks and notes with folders and tags. The bookmark dialog searches folders by full ancestor path, remembers five recent folder selections locally (IDs only), and hides the folder field when no folders exist. Its full-width tag field supports searchable multi-selection, usage-ranked suggestions, normalized creation, removable chips, and a compact summary after three tags. Parent-folder selection also searches paths and excludes the edited folder and all descendants.
 - Share any folder as a read-only public bookmark collection at `/share/[token]`, and revoke the link at any time without exposing notes, archived items, or subfolders.
 - Search with title-weighted relevance, multiword matching, title typo tolerance, and highlighted results.
 - Refine by domain, item type, tag, and inclusive UTC date range; save named searches to the account for reuse on other devices.
@@ -59,9 +59,17 @@ The editor sends a base revision and a stable save UUID. The API atomically chec
 
 Network failures, HTTP 408/429, and server errors retry with capped exponential backoff while the editor remains open, and immediately when the browser reports reconnection. Permission and validation failures require attention rather than endless retries. “Waiting to sync”, “Saving”, saved, failed, and conflict states are shown separately. This is not a full offline app: loading an existing note still requires the API, and automatic note sync stops when its editor is closed.
 
-Pending changes are backed up in localStorage under the current user and note ID. A recovered draft for an existing server-backed note requires an explicit restore choice before it can replace the saved content. Clearing browser storage removes this local backup, not account data. Images use public HTTP(S) URLs; file upload is not enabled.
+Pending changes are backed up in localStorage under the current user and note ID. A recovered draft for an existing server-backed note requires an explicit restore choice before it can replace the saved content. Clearing browser storage removes this local backup, not account data. Images can use public HTTP(S) URLs or be inserted from the file picker, clipboard, or drag-and-drop. Local images are embedded as data URLs in the document, not uploaded to R2; large images increase document and local-draft size.
 
-Editor components are installed from the [Editorcn registry](https://editorcn.vercel.app) and use its Phosphor icon preset. Core editor, table, image-placeholder, and extension UI styles load only with the note editor.
+The note editor uses the MIT-licensed [shadcn-editor](https://github.com/htmujahid/shadcn-editor) extensions and stores serialized Lexical editor state in `Bookmark.noteDocument`. There is no fixed top toolbar: use `/` or the block's `+` handle to insert blocks, drag handles to reorder, and select text to reveal formatting. The bottom activity strip provides counts, undo/redo, import/export, dictation (when the browser supports speech recognition), read-only preview, shortcuts, and language selection. YouTube, X/Twitter, and Figma URLs support embeds; `/equation`, `/image URL`, and `/find` expose tools previously available only from a toolbar. Mentions and autocomplete use the upstream sample names and word dictionaries, not Cabinet account lookup.
+
+Editor-specific Base UI controls live under `src/components/editor/ui` so the existing Cabinet Radix components are unchanged. The editor preview toggle cannot override a viewer's or unrestored draft's read-only restriction. Existing documents from the previous editor are loaded from their plain-text preview; new edits are saved in Lexical format. Run `pnpm --filter @cabinet/web test:notes` for browser checks of insertion, serialization/reload, permissions, and responsive layouts.
+
+## File previews and card sizing
+
+All gallery/card densities enforce a 208px minimum card height; visual preview surfaces have a 176px minimum. Content can still grow taller and PDF previews keep the document's page ratio. List-view rows are unchanged.
+
+PDF thumbnails and the live viewer use the same PDF.js loader. Public file URLs are fetched without cross-origin credentials so wildcard CORS on storage such as R2 works; the file host must still allow cross-origin GET requests. The viewer reuses one document for thumbnails, page changes, rotation, zoom, and continuous layout, and cancels render tasks/destroys workers on close. Loading and unavailable states replace silent blank thumbnails. Run `pnpm --filter @cabinet/web test:pdf` to verify actual PDF/worker rendering against a separate-origin public server, pixel output, viewer controls, failures, and minimum card heights.
 
 ## Search
 

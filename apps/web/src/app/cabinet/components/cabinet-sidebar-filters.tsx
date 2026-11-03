@@ -2,7 +2,6 @@ import React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
-import { cn } from "@/lib/utils"
 import { authClient } from "@/lib/auth-client"
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
@@ -11,6 +10,7 @@ import { FolderDialog } from "./folder-dialog"
 import { TagDialog } from "./tag-dialog"
 import {
   BookmarkSimple,
+  ClockCounterClockwise,
   Star,
   Archive,
   FolderPlus,
@@ -79,7 +79,6 @@ interface SidebarFiltersProps {
   onSelectType?: (type: "BOOKMARK" | "NOTE" | "DRAWING" | undefined) => void
   onSelectContentType?: (type: string | undefined) => void
   healthSummary?: any
-  onScan?: () => void
   resetFolderForm: () => void
   onItemSelect?: () => void
   viewSection?: "all" | "folders" | "library"
@@ -139,7 +138,6 @@ export function CabinetSidebarFilters({
   onSelectType,
   onSelectContentType,
   healthSummary,
-  onScan,
   resetFolderForm,
   onItemSelect,
   viewSection = "all",
@@ -415,6 +413,9 @@ export function CabinetSidebarFilters({
                 </p>
               </div>
 
+              <DropdownMenuItem asChild>
+                <Link href="/cabinet/activity" className="flex cursor-pointer items-center gap-2 text-xs"><ClockCounterClockwise className="size-3.5" /><span>Activity</span></Link>
+              </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link
                   href="/cabinet/settings"

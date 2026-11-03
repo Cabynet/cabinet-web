@@ -8,7 +8,7 @@
 
 export interface UpdateUserRequest {
   /** @nullable */
-  avatar_url?: string | null;
+  avatarUrl?: string | null;
   /** @nullable */
   name?: string | null;
 }

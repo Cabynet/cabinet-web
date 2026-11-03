@@ -8,6 +8,6 @@
 
 export interface ChangePasswordRequest {
   /** @nullable */
-  current_password?: string | null;
-  new_password: string;
+  currentPassword?: string | null;
+  newPassword: string;
 }

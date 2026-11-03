@@ -8,19 +8,19 @@
 import type { BookmarkTagSummary } from './bookmarkTagSummary.js';
 
 export interface SearchResultItem {
-  created_at: string;
+  createdAt: string;
   /** @nullable */
   description?: string | null;
   /** @nullable */
-  favicon_url?: string | null;
+  faviconUrl?: string | null;
   id: string;
   /** @nullable */
-  normalized_domain?: string | null;
+  normalizedDomain?: string | null;
   /** @nullable */
-  raw_url?: string | null;
+  rawUrl?: string | null;
   score: number;
   tags: BookmarkTagSummary[];
   /** @nullable */
-  thumbnail_url?: string | null;
+  thumbnailUrl?: string | null;
   title: string;
 }

@@ -6,6 +6,7 @@ import test from "node:test"
 import { build } from "esbuild"
 import React from "react"
 import { renderToStaticMarkup } from "react-dom/server"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 
 const directory = await mkdtemp(join(process.cwd(), ".moodboard-card-test-"))
 let MoodboardCard
@@ -28,7 +29,7 @@ try {
 }
 
 const noop = () => {}
-const render = (bookmark, density, isSelected = false) => renderToStaticMarkup(React.createElement(MoodboardCard, {
+const render = (bookmark, density, isSelected = false, client = new QueryClient()) => renderToStaticMarkup(React.createElement(QueryClientProvider, { client }, React.createElement(MoodboardCard, {
   showActions: false,
   nativeDrag: false,
   displayPreferences: { density, showTitle: true, showDescription: true, showImage: true, showWebsite: true, showFolder: true, showDate: true },
@@ -37,15 +38,38 @@ const render = (bookmark, density, isSelected = false) => renderToStaticMarkup(R
   isSelected, onToggleSelect: noop, onSelectTag: noop, onToggleFavorite: noop, onToggleArchive: noop,
   onEditBookmark: noop, onDeleteBookmark: noop, onDuplicateBookmark: noop,
   getHostname: (url) => (url ? new URL(url).hostname : ""),
-}))
+})))
 
-const link = { title: "Japanese Design Since 1945", url: "https://www.example.com/book", description: "A complete sourcebook.", imageUrl: "https://cdn.example.com/cover.jpg" }
+const link = { title: "Japanese Design Since 1945", url: "https://www.example.com/book", description: "A complete sourcebook.", imageUrl: "https://pub-test.r2.dev/cover.jpg" }
 
 test("visual cards show the preview with only the title as a caption", () => {
   const html = render(link, "visual")
   assert.match(html, /<img[^>]+alt="Japanese Design Since 1945"/)
   assert.match(html, /Japanese Design Since 1945<\/p>/)
   for (const detail of [/A complete sourcebook/, /Design references/, /#design/, /<time/]) assert.doesNotMatch(html, detail)
+})
+
+test("warm image previews skip loading and do not reuse a different URL or cleared cache", () => {
+  const client = new QueryClient()
+  client.setQueryData(["bookmark-image", link.imageUrl], link.imageUrl)
+  const warm = render(link, "visual", false, client)
+  assert.doesNotMatch(warm, /Loading thumbnail/)
+  assert.match(warm, /src="https:\/\/pub-test\.r2\.dev\/cover\.jpg"/)
+  assert.match(render({ ...link, imageUrl: "https://pub-test.r2.dev/new.jpg" }, "visual", false, client), /Loading thumbnail/)
+  client.clear()
+  assert.match(render(link, "visual", false, client), /Loading thumbnail/)
+})
+
+test("warm PDF previews reuse the rendered image, but not after the document URL changes", () => {
+  const client = new QueryClient()
+  const pdf = { ...link, url: "https://cdn.example.com/document.pdf" }
+  client.setQueryData(["pdf-thumbnail", pdf.url], { src: "data:image/webp;base64,thumbnail", ratio: 0.75 })
+  const warm = render(pdf, "visual", false, client)
+  assert.match(warm, /data-pdf-ready="true"/)
+  assert.doesNotMatch(warm, /Loading PDF preview/)
+  assert.match(render({ ...pdf, url: "https://cdn.example.com/new.pdf" }, "visual", false, client), /Loading PDF preview/)
+  client.clear()
+  assert.match(render(pdf, "visual", false, client), /Loading PDF preview/)
 })
 
 test("PDF cards use the loaded document page ratio instead of a fixed frame", () => {
@@ -55,24 +79,36 @@ test("PDF cards use the loaded document page ratio instead of a fixed frame", ()
   }
 })
 
+test("all card densities give links, notes, and files a minimum height", () => {
+  for (const density of ["visual", "comfortable", "compact"]) {
+    for (const bookmark of [link, { type: "NOTE", title: "Short note", notes: "One line." }, { title: "File", url: "https://cdn.example.com/file.zip" }, { title: "PDF", url: "https://cdn.example.com/file.pdf" }]) {
+      assert.match(render(bookmark, density), /data-slot="card"[^>]*class="[^"]*\bmin-h-52\b/)
+    }
+  }
+})
+
 test("selected visual cards keep their olive outline inside the preview edge", () => {
   const html = render(link, "visual", true)
   assert.match(html, /ring-2 ring-inset ring-library-olive/)
 })
 
-test("hidden thumbnails load eagerly so onLoad can reveal them", () => {
+test("thumbnails load lazily with an observable layout box instead of display none", () => {
   for (const density of ["visual", "compact", "comfortable"]) {
     const html = render(link, density)
     const image = html.match(/<img\b[^>]*>/)?.[0]
     assert.ok(image, `Missing thumbnail for ${density}`)
-    assert.match(image, /loading="eager"/)
+    assert.match(image, /loading="lazy"/)
     assert.match(image, /decoding="async"/)
+    assert.match(image, /absolute inset-0 h-full opacity-0/)
+    assert.doesNotMatch(image, /\bhidden\b/)
   }
 })
 
 test("visual links without a picture set the site and title as a type-only card", () => {
-  const html = render({ ...link, imageUrl: null, siteName: "Forbes" }, "visual")
-  assert.doesNotMatch(html, /<img/)
+  // An R2 host keeps the fallback favicon direct; other hosts are signed through the API after mount.
+  const html = render({ ...link, url: "https://pub-test.r2.dev/book", imageUrl: null, siteName: "Forbes" }, "visual")
+  assert.match(html, /<img[^>]+width="24"[^>]+height="24"/)
+  assert.match(html, /favicon\.ico/)
   assert.match(html, /font-serif[^"]*">Forbes</)
   assert.match(html, /<p[^>]*>Japanese Design Since 1945</)
   // Type-only links use the same caption row as image cards.
@@ -86,6 +122,14 @@ test("visual links without a picture set the site and title as a type-only card"
   const deepDomain = render({ ...link, title: "medium.com", url: "https://medium.com/@author/tiptap-vs-lexical", imageUrl: null, siteName: null }, "visual")
   assert.match(deepDomain, /medium\.com</)
   assert.match(deepDomain, /<p[^>]*>@author\/tiptap-vs-lexical</)
+})
+
+test("cards without thumbnails use the saved favicon before the domain icon", () => {
+  for (const density of ["visual", "comfortable", "compact"]) {
+    const html = render({ ...link, imageUrl: null, faviconUrl: "https://pub-test.r2.dev/site-icon.png" }, density)
+    assert.match(html, /site-icon\.png/)
+    assert.doesNotMatch(html, /favicon\.ico/)
+  }
 })
 
 test("visual cards flag broken links and keep note titles reachable", () => {

@@ -11,5 +11,5 @@ export interface CreateFolderRequest {
   description?: string | null;
   name: string;
   /** @nullable */
-  parent_id?: string | null;
+  parentId?: string | null;
 }

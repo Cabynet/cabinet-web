@@ -3,33 +3,9 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
-import { useEditor, type JSONContent } from "@tiptap/react"
-import StarterKit from "@tiptap/starter-kit"
-import Placeholder from "@tiptap/extension-placeholder"
-import Underline from "@tiptap/extension-underline"
-import Highlight from "@tiptap/extension-highlight"
-import { TextStyle } from "@tiptap/extension-text-style"
-import Color from "@tiptap/extension-color"
-import TaskList from "@tiptap/extension-task-list"
-import TaskItem from "@tiptap/extension-task-item"
-import Link from "@tiptap/extension-link"
-import TextAlign from "@tiptap/extension-text-align"
-import { ArrowLeft, Image, Table as TableIcon, FolderSimple, Hash as Tag } from "@phosphor-icons/react"
+import { ArrowLeft, FolderSimple, Hash as Tag } from "@phosphor-icons/react"
 import { TagsInput, TagsInputInput, TagsInputItem, TagsInputList } from "@/components/ui/tags-input"
-import {
-  BlockEditor,
-  SlashCommand,
-  CodeBlock,
-  defaultSlashCommandItems,
-  getSlashCommandSuggestion,
-  type SlashCommandSuggestionItem,
-} from "@/components/block-editor"
-import { Table } from "@/components/extensions/table"
-import { TableHoverOverlay } from "@/components/extensions/table/table-hover-overlay"
-import {
-  ImagePlaceholder,
-  ResizableImage,
-} from "@/components/extensions/image-placeholder"
+import { NoteEditor } from "@/components/editor/note-editor"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
@@ -44,47 +20,14 @@ import {
 } from "@/components/ui/select"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { authClient } from "@/lib/auth-client"
-import { AXIOS_INSTANCE, useFoldersControllerFindAll, uploadFileToR2 } from "@/lib/api-client"
+import { AXIOS_INSTANCE, getBookmark, useFoldersControllerFindAll } from "@/lib/api-client"
 import {
   NoteAutosave,
   type NoteSnapshot,
   type NoteSaveStatus,
 } from "@/lib/note-autosave"
-import { legacyNoteToDocument, parseNoteDraft } from "@/lib/note-document"
+import { isTiptapDocument, legacyNoteToDocument, parseNoteDraft, tiptapToDocument } from "@/lib/note-document"
 import { canAddToFolder } from "@/lib/folder-roles"
-import "@/components/block-editor/style.css"
-import "@/components/extensions/table/style.css"
-import "@/components/extensions/image-placeholder/style.css"
-import "@/components/extensions/ui/style.css"
-
-const slashItems: SlashCommandSuggestionItem[] = [
-  ...defaultSlashCommandItems,
-  {
-    id: "image",
-    title: "Image",
-    description: "Embed an image from a URL.",
-    keywords: ["image", "photo", "picture"],
-    icon: <Image />,
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).insertImagePlaceholder().run()
-    },
-  },
-  {
-    id: "table",
-    title: "Table",
-    description: "Insert a resizable table.",
-    keywords: ["table", "grid"],
-    icon: <TableIcon />,
-    command: ({ editor, range }) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-        .run()
-    },
-  },
-]
 
 function readDraft(key: string) {
   try {
@@ -123,10 +66,7 @@ export default function NoteEditorPage({ noteId }: { noteId: string }) {
       try {
         let note: any
         try {
-          const response = await AXIOS_INSTANCE.get(`/v1/bookmarks/${noteId}`, {
-            signal: controller.signal,
-          })
-          note = response.data.data
+          note = await getBookmark(noteId, controller.signal)
           if (note.type !== "NOTE") throw new Error("This item is not a note.")
         } catch (error: any) {
           const isNew =
@@ -143,8 +83,11 @@ export default function NoteEditorPage({ noteId }: { noteId: string }) {
           tags: note?.tags?.map((tag: any) => tag.name) ?? [],
           notes: note?.notes || note?.description || "",
           noteDocument:
-            note?.noteDocument ??
-            legacyNoteToDocument(note?.notes || note?.description || ""),
+            note?.noteDocument?.root?.type === "root"
+              ? note.noteDocument
+              : isTiptapDocument(note?.noteDocument)
+                ? tiptapToDocument(note.noteDocument)
+                : legacyNoteToDocument(note?.notes || note?.description || ""),
         }
         const local = readDraft(draftKey)
         // A server-backed note requires an explicit choice before an old draft can overwrite it.
@@ -247,7 +190,7 @@ function NoteCanvas({
   const router = useRouter()
   const queryClient = useQueryClient()
   const { data: foldersData } = useFoldersControllerFindAll()
-  const folders = (foldersData as any)?.data || foldersData || []
+  const folders = foldersData || []
   const [title, setTitle] = useState(initial.title)
   const [tags, setTags] = useState<string[]>(initial.tags ?? [])
   const [selectedFolderId, setSelectedFolderId] = useState<string | undefined>(initial.folderId)
@@ -264,8 +207,12 @@ function NoteCanvas({
   useEffect(() => {
     let active = true
     const writer = new VersionedNoteSave(initialRevision, async (body) => {
-      const response = await AXIOS_INSTANCE.put(`/v1/bookmarks/${noteId}/note`, { ...body, expectedUserId: userId, folderId: body.folderId ?? null })
-      return response.data.data ?? response.data
+      const response = await AXIOS_INSTANCE.put(`/v1/bookmarks/${noteId}/note`, {
+        baseRevision: body.baseRevision, saveId: body.saveId,
+        plainText: body.notes, document: body.noteDocument, title: body.title,
+        ...(access === "owner" ? { folderId: body.folderId ?? null, setFolder: true, tags: body.tags } : {}),
+      })
+      return { noteRevision: response.data.revision }
     })
     versionedSave.current = writer
     const queue = new NoteAutosave(
@@ -333,58 +280,6 @@ function NoteCanvas({
     autosave.current?.schedule(snapshot)
   }
 
-  const editor = useEditor({
-    immediatelyRender: false,
-    shouldRerenderOnTransaction: false,
-    extensions: [
-      StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
-        codeBlock: false,
-        underline: false,
-        link: false,
-        gapcursor: false,
-      }),
-      Placeholder.configure({ placeholder: "Type / for commands..." }),
-      Underline,
-      TextStyle,
-      Color.configure({ types: ["textStyle"] }),
-      Highlight.configure({ multicolor: true }),
-      TaskList,
-      TaskItem.configure({ nested: true }),
-      Table.configure({ resizable: true }),
-      ResizableImage,
-      ImagePlaceholder.configure({
-        allowUpload: true,
-        uploadFn: async (file: File) => {
-          const res = await uploadFileToR2(file)
-          return res.url
-        },
-      }),
-      SlashCommand.configure({
-        suggestion: getSlashCommandSuggestion(slashItems),
-      }),
-      CodeBlock,
-      Link.configure({
-        openOnClick: false,
-        autolink: true,
-        defaultProtocol: "https",
-        protocols: ["http", "https"],
-      }),
-      TextAlign.configure({ types: ["heading", "paragraph"] }),
-    ],
-    editable: !draft && access !== "viewer",
-    content: initial.noteDocument as JSONContent,
-    onUpdate: ({ editor }) =>
-      update({
-        ...current.current,
-        notes: editor.getText({ blockSeparator: "\n" }),
-        noteDocument: editor.getJSON(),
-      }),
-  })
-
-  useEffect(() => {
-    editor?.setEditable(!draft && access !== "viewer", false)
-  }, [editor, draft, access])
 
   const leave = async () => {
     if (await autosave.current?.flush()) {
@@ -463,6 +358,7 @@ function NoteCanvas({
               Retry save
             </Button>
           )}
+          <div id="note-header-actions" className="flex items-center" />
           <ThemeToggle />
         </div>
       </header>
@@ -491,8 +387,8 @@ function NoteCanvas({
                 <Button size="sm" disabled={resolving} onClick={async () => {
                   setResolving(true)
                   try {
-                    const response = await AXIOS_INSTANCE.get(`/v1/bookmarks/${noteId}`)
-                    versionedSave.current?.rebase((response.data.data ?? response.data).noteRevision)
+                    const note = await getBookmark(noteId)
+                    versionedSave.current?.rebase(note.noteRevision)
                     await autosave.current?.resume()
                   } catch { /* The draft and conflict remain until the server is reachable. */ }
                   finally { setResolving(false) }
@@ -525,7 +421,7 @@ function NoteCanvas({
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               event.preventDefault()
-              editor?.commands.focus("start")
+              document.querySelector<HTMLElement>("[contenteditable='true']")?.focus()
             }
           }}
           maxLength={1000}
@@ -536,7 +432,7 @@ function NoteCanvas({
             setTitle(event.target.value)
             update({ ...current.current, title: event.target.value })
           }}
-          className="mb-3 w-full border-0 bg-transparent p-0 pl-8 text-3xl font-semibold tracking-tight text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring/50 sm:text-4xl"
+          className="mb-3 w-full border-0 bg-transparent p-0 pl-8 text-3xl font-semibold tracking-tight text-foreground outline-none placeholder:text-muted-foreground sm:text-4xl"
         />
         {/* Tags are personal to the note's author. */}
         {access === "owner" ? <div className="mb-8 flex items-center gap-2 pl-8 text-sm text-muted-foreground">
@@ -551,7 +447,7 @@ function NoteCanvas({
             }}
             className="min-w-0 flex-1"
           >
-            <TagsInputList className="min-h-8 border-none bg-transparent px-0 py-0 shadow-none">
+            <TagsInputList className="min-h-8 border-none bg-transparent px-0 py-0 shadow-none focus-within:ring-0">
               {tags.map((tag) => (
                 <TagsInputItem key={tag} value={tag} className="h-6 rounded-sm px-1.5 py-0 text-xs">
                   #{tag}
@@ -561,8 +457,11 @@ function NoteCanvas({
             </TagsInputList>
           </TagsInput>
         </div> : <div className="mb-5" />}
-        <BlockEditor editor={editor} />
-        <TableHoverOverlay editor={editor} />
+        <NoteEditor
+          value={initial.noteDocument}
+          editable={!draft && access !== "viewer"}
+          onChange={(noteDocument, notes) => update({ ...current.current, notes, noteDocument })}
+        />
       </div>
     </main>
   )

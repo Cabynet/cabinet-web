@@ -8,9 +8,9 @@
 
 export interface LinkHealthCheckResponse {
   /** @nullable */
-  http_status_code?: number | null;
+  httpStatusCode?: number | null;
   id: string;
-  link_health: string;
+  linkHealth: string;
   /** @nullable */
   url?: string | null;
 }

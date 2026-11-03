@@ -1,5 +1,6 @@
 "use client"
 
+import { useInvalidate } from "./hooks/use-invalidate"
 import React, { useEffect, useState } from "react"
 import nextDynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
@@ -41,7 +42,8 @@ import { Archive, Trash, ArrowCounterClockwise, Hash as TagIcon } from "@phospho
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
-import { Skeleton } from "@/components/ui/skeleton"
+import { CabinetSkeleton } from "./components/cabinet-skeleton"
+import { isRateLimited } from "@/lib/api-client"
 import {
   Select,
   SelectTrigger,
@@ -75,46 +77,38 @@ import { useCabinetShortcuts } from "./hooks/use-cabinet-shortcuts"
 
 export const dynamic = "force-dynamic"
 
-function normalizeBookmark(b: any) {
-  if (!b) return b
-  return {
-    ...b,
-    url: b.url ?? b.raw_url,
-    raw_url: b.raw_url ?? b.url,
-    domain: b.domain ?? b.normalized_domain,
-    normalized_domain: b.normalized_domain ?? b.domain,
-    imageUrl: b.imageUrl ?? b.thumbnail_url,
-    thumbnail_url: b.thumbnail_url ?? b.imageUrl,
-    faviconUrl: b.faviconUrl ?? b.favicon_url,
-    favicon_url: b.favicon_url ?? b.faviconUrl,
-    isPinned: b.isPinned ?? b.is_pinned ?? false,
-    is_pinned: b.is_pinned ?? b.isPinned ?? false,
-    isFavorite: b.isFavorite ?? b.is_favorite ?? false,
-    is_favorite: b.is_favorite ?? b.isFavorite ?? false,
-    isArchived: b.isArchived ?? b.is_archived ?? false,
-    is_archived: b.is_archived ?? b.isArchived ?? false,
-    folderId: b.folderId ?? b.folder_id,
-    folder_id: b.folder_id ?? b.folderId,
-    metadataStatus: b.metadataStatus ?? b.metadata_status ?? "PENDING",
-    metadata_status: b.metadata_status ?? b.metadataStatus ?? "PENDING",
-    createdAt: b.createdAt ?? b.created_at,
-    created_at: b.created_at ?? b.createdAt,
-    updatedAt: b.updatedAt ?? b.updated_at,
-    updated_at: b.updated_at ?? b.updatedAt,
-  }
+import { bookmarkFromApi } from "@/lib/api-model"
+function normalizeBookmark(item: Parameters<typeof bookmarkFromApi>[0]) {
+  return { ...bookmarkFromApi(item), isSummary: true }
 }
 
 export function CabinetDashboard() {
   const [open, setOpen] = useState(true)
   useEffect(() => {
-    try { setOpen(localStorage.getItem("cabinet_sidebar_collapsed") !== "true") } catch {}
+    try {
+      setOpen(localStorage.getItem("cabinet_sidebar_collapsed") !== "true")
+    } catch {
+      // Local storage may be blocked or unavailable in private browsing.
+      return
+    }
   }, [])
-  return <SidebarProvider open={open} onOpenChange={(value) => {
-    setOpen(value)
-    try { localStorage.setItem("cabinet_sidebar_collapsed", String(!value)) } catch {}
-  }} className="h-dvh min-h-0 overflow-hidden">
-    <CabinetWorkspace />
-  </SidebarProvider>
+  return (
+    <SidebarProvider
+      open={open}
+      onOpenChange={(value) => {
+        setOpen(value)
+        try {
+          localStorage.setItem("cabinet_sidebar_collapsed", String(!value))
+        } catch {
+          // Local storage may be blocked or unavailable in private browsing.
+          return
+        }
+      }}
+      className="h-dvh min-h-0 overflow-hidden"
+    >
+      <CabinetWorkspace />
+    </SidebarProvider>
+  )
 }
 
 function CabinetWorkspace() {
@@ -130,12 +124,12 @@ function CabinetWorkspace() {
   const { data: foldersData } = useFoldersControllerFindAll({
     query: { enabled: !isMeLoading && !!user },
   })
-  const folders = (foldersData as any)?.data || []
+  const folders = React.useMemo(() => foldersData || [], [foldersData])
 
   const { data: tagsData } = useTagsControllerFindAll({
     query: { enabled: !isMeLoading && !!user },
   })
-  const tags = (tagsData as any)?.data || []
+  const tags = tagsData || []
 
   // Modular filters & preferences
   const {
@@ -150,7 +144,9 @@ function CabinetWorkspace() {
     searchQuery,
     setSearchQuery,
     searchDebounced,
-    currentView, domain, setDomain, addedAfter, setAddedAfter, addedBefore, setAddedBefore,
+    domain,
+    addedAfter,
+    addedBefore,
     viewMode,
     sort,
     handleSortChange,
@@ -205,6 +201,18 @@ function CabinetWorkspace() {
 
   const scanHealthMutation = useBookmarksControllerTriggerHealthCheck()
   const cleanDuplicatesMutation = useBookmarksControllerCleanDuplicates()
+
+  const { invalidateBookmarks, invalidateFolders, invalidateTags } = useInvalidate()
+
+  const invalidateDuplicates = React.useCallback(
+    () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["/v1/bookmarks/duplicates"] }),
+        queryClient.invalidateQueries({ queryKey: ["infinite", "/v1/bookmarks"] }),
+        queryClient.invalidateQueries({ queryKey: ["/v1/bookmarks/health"] }),
+      ]),
+    [queryClient]
+  )
 
   const invalidateAllQueries = React.useCallback(() => Promise.all([
     queryClient.invalidateQueries({ queryKey: ["/v1/bookmarks"] }),
@@ -289,9 +297,10 @@ function CabinetWorkspace() {
         enabled: !isMeLoading && !!user,
         initialPageParam: undefined,
         // Enrichment uses the lightweight previews endpoint instead of refetching every page.
-        refetchInterval: selectedFolderId && !filterTrash && !reorderMutation.isPending ? 15000 : false,
+        refetchInterval: () =>
+          selectedFolderId && !filterTrash && !reorderMutation.isPending && !isRateLimited() ? 15000 : false,
         getNextPageParam: (lastPage: any) =>
-          lastPage?.next_cursor ?? lastPage?.nextCursor ?? lastPage?.data?.nextCursor ?? undefined,
+          lastPage?.nextCursor ?? undefined,
       },
     }
   )
@@ -318,14 +327,14 @@ function CabinetWorkspace() {
     }
   }, [mounted, isLoading, user, filterDuplicates, hasNextPage, isFetchingBookmarks, isFetchNextPageError, fetchNextPage, bookmarksInfiniteData])
 
-  const rawBookmarks =
-    bookmarksInfiniteData?.pages.flatMap((page: any) => {
-      const list = page?.items ?? page?.data?.data ?? page?.data ?? []
-      return Array.isArray(list) ? list.map(normalizeBookmark) : []
-    }) || []
-  const bookmarks = Array.from(
-    new Map(rawBookmarks.map((b: any) => [b.id, b])).values()
-  )
+  const bookmarks = React.useMemo(() => {
+    const folderById = new Map(folders.map((folder) => [folder.id, folder]))
+    const unique = new Map<string, any>()
+    for (const page of bookmarksInfiniteData?.pages ?? []) {
+      for (const item of (page as any)?.items ?? []) unique.set(item.id, normalizeBookmark(item))
+    }
+    return Array.from(unique.values(), (item) => ({ ...item, folder: folderById.get(item.folderId) ?? null }))
+  }, [bookmarksInfiniteData, folders])
 
   const [optimisticOrder, setOptimisticOrder] = React.useState<string[] | null>(
     null
@@ -421,7 +430,7 @@ function CabinetWorkspace() {
     enabled: !(isBookmarkModalOpen || isFolderModalOpen || isMobileAddOpen || isCommandMenuOpen),
     targetFolderId: addTargetFolderId,
     targetFolderName: canAddHere ? selectedFolder?.name : undefined,
-    onUploadSuccess: invalidateAllQueries,
+    onUploadSuccess: invalidateBookmarks,
   })
 
   const {
@@ -444,7 +453,6 @@ function CabinetWorkspace() {
     updateBookmarkMutation,
     createBookmarkMutation,
     removeBookmarkMutation,
-    invalidateAllQueries,
     selectedBookmarkIds,
     setSelectedBookmarkIds,
     getBookmark: (id) =>
@@ -471,7 +479,7 @@ function CabinetWorkspace() {
   const handleScan = async () => {
     try {
       await scanHealthMutation.mutateAsync()
-      invalidateAllQueries()
+      await queryClient.invalidateQueries({ queryKey: ["/v1/bookmarks/health"] })
       toast.success("Link check queued")
     } catch {
       toast.error("Failed to start link status scan.")
@@ -487,7 +495,7 @@ function CabinetWorkspace() {
     if (confirmed) {
       try {
         await cleanDuplicatesMutation.mutateAsync()
-        invalidateAllQueries()
+        await invalidateDuplicates()
         toast.success("Duplicate bookmarks successfully cleaned!")
       } catch {
         toast.error("Failed to clean duplicate bookmarks.")
@@ -499,7 +507,7 @@ function CabinetWorkspace() {
     try {
       const tagToDelete = tags.find((t: any) => t.id === id)
       await removeTagMutation.mutateAsync({ id })
-      invalidateAllQueries()
+      await Promise.all([invalidateTags(), invalidateBookmarks()])
       toast.success(tagToDelete ? `Deleted #${tagToDelete.name}` : "Tag deleted")
       if (tagToDelete && selectedTag === tagToDelete.name) {
         setSelectedTag(undefined)
@@ -521,11 +529,12 @@ function CabinetWorkspace() {
     isAnyModalOpen: isBookmarkModalOpen || isFolderModalOpen || isMobileAddOpen || !!downloadBookmark,
   })
 
-  const handleToggleSelectBookmark = (id: string) => {
+  const handleToggleSelectBookmark = React.useCallback((id: string) => {
     setSelectedBookmarkIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     )
-  }
+  }, [])
+  const handleSelectTag = React.useCallback((tag: string) => setSelectedTag(tag || undefined), [setSelectedTag])
 
   const handleClearSelection = () => {
     setSelectedBookmarkIds([])
@@ -557,8 +566,7 @@ function CabinetWorkspace() {
           new Map(
             allPages
               .flatMap((page: any) => {
-                const list = page?.items ?? page?.data?.data ?? page?.data ?? []
-                return Array.isArray(list) ? list.map(normalizeBookmark) : []
+                return (page?.items ?? []).map(normalizeBookmark)
               })
               .map((b: any) => [b.id, b])
           ).values()
@@ -591,23 +599,7 @@ function CabinetWorkspace() {
 
   // Rendering Loader
   if (!mounted || isLoading || !user) {
-    return (
-      <div className="flex h-dvh w-full gap-4 bg-background p-2 md:p-3" role="status" aria-label="Loading Cabinet">
-        <span className="sr-only">Loading Cabinet…</span>
-        <div aria-hidden="true" className="hidden w-64 shrink-0 flex-col gap-6 rounded-lg border border-border bg-card p-4 md:flex">
-          <Skeleton className="h-8 w-32" />
-          <div className="flex flex-col gap-2">{Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-7 w-full" />)}</div>
-          <div className="flex flex-col gap-2">{Array.from({ length: 5 }, (_, i) => <Skeleton key={i} className="h-7 w-4/5" />)}</div>
-        </div>
-        <div aria-hidden="true" className="flex min-w-0 flex-1 flex-col gap-6 px-2 py-4 sm:px-3">
-          <div className="flex items-center gap-3"><Skeleton className="size-9 shrink-0" /><Skeleton className="h-9 w-full max-w-xl" /></div>
-          <div className="flex flex-col gap-2"><Skeleton className="h-8 w-48" /><Skeleton className="h-4 w-28" /></div>
-          <div className="flex flex-col divide-y divide-border rounded-lg border border-border bg-card">
-            {Array.from({ length: 6 }, (_, i) => <div key={i} className="flex h-16 items-center gap-3 px-4"><Skeleton className="size-5 shrink-0" /><Skeleton className="h-4 w-1/2" /></div>)}
-          </div>
-        </div>
-      </div>
-    )
+    return <CabinetSkeleton />
   }
 
   return (
@@ -714,7 +706,6 @@ function CabinetWorkspace() {
                   }
                 }}
                 healthSummary={healthSummary}
-                onScan={handleScan}
                 resetFolderForm={resetFolderForm}
                 onDropBookmarkToFolder={handleDropBookmarkToFolder}
                 viewSection={isMobile ? mobileDrawerMode || "all" : "all"}
@@ -779,8 +770,7 @@ function CabinetWorkspace() {
                   void (filterDuplicates ? refetchDuplicates() : refetchBookmarks())
                 }}
                 totalBookmarks={
-                  (bookmarksInfiniteData as any)?.pages?.[0]?.data
-                    ?.totalCount || 0
+                  (bookmarksInfiniteData as any)?.pages?.[0]?.totalCount
                 }
                 selectedFolderId={selectedFolderId}
                 selectedTag={selectedTag}
@@ -792,9 +782,7 @@ function CabinetWorkspace() {
                 viewMode={viewMode}
                 selectedBookmarkIds={selectedBookmarkIds}
                 onToggleSelect={handleToggleSelectBookmark}
-                onSelectTag={(tag) => {
-                  setSelectedTag(tag || undefined)
-                }}
+                onSelectTag={handleSelectTag}
                 onToggleFavorite={toggleFavorite}
                 onTogglePin={togglePin}
                 onToggleArchive={toggleArchive}
@@ -815,7 +803,9 @@ function CabinetWorkspace() {
                 onPreviewBookmarkChange={setPreviewBookmark}
                 onUpdateBookmark={async (id, data) => {
                   const result = await updateBookmarkMutation.mutateAsync({ id, data })
-                  await invalidateAllQueries()
+                  await invalidateBookmarks()
+                  if (data.tags) await invalidateTags()
+                  if (data.folderId !== undefined) await invalidateFolders()
                   return result
                 }}
               />

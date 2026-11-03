@@ -8,17 +8,29 @@
 
 export interface UpdateBookmarkRequest {
   /** @nullable */
+  baseRevision?: number | null;
+  /** @nullable */
   description?: string | null;
   /** @nullable */
-  folder_id?: string | null;
+  folderId?: string | null;
   /** @nullable */
-  is_archived?: boolean | null;
+  isArchived?: boolean | null;
   /** @nullable */
-  is_favorite?: boolean | null;
+  isFavorite?: boolean | null;
   /** @nullable */
-  is_pinned?: boolean | null;
+  isPinned?: boolean | null;
+  /** @nullable */
+  notesPlain?: string | null;
+  /** @nullable */
+  saveId?: string | null;
+  /** @nullable */
+  setFolder?: boolean | null;
   /** @nullable */
   tags?: string[] | null;
   /** @nullable */
+  thumbnailUrl?: string | null;
+  /** @nullable */
   title?: string | null;
+  /** @nullable */
+  url?: string | null;
 }

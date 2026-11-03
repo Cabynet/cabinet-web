@@ -8,7 +8,7 @@ const items = sharedCollectionItems([
   { id: "two", title: "Color Systems", description: "Design references for digital products.", url: "https://design.test/color", imageUrl: "https://images.test/color.jpg" },
   { id: "three", title: "Camera Archive", description: "Photography and visual culture.", url: "https://camera.test/read", imageUrl: "https://images.test/broken.jpg" },
   { id: "four", title: "Layout Notes", description: "A collection of CSS resources.", url: "https://web.test/layout", imageUrl: null },
-], "")
+])
 
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

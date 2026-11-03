@@ -1,5 +1,6 @@
 "use client"
 
+import { apiErrorMessage } from "@/lib/api-error"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "@/components/ui/sonner"
 import { uploadBookmarkToR2 } from "@/lib/api-client"
@@ -50,9 +51,7 @@ export function useFinderFileDrop({
       if (event.dataTransfer) {
         event.dataTransfer.dropEffect = "copy"
       }
-      if (!isDraggingOver) {
-        setIsDraggingOver(true)
-      }
+      setIsDraggingOver(true) // no-op re-render when already true
     }
 
     const handleDragLeave = (event: DragEvent) => {
@@ -99,8 +98,8 @@ export function useFinderFileDrop({
           })
           toast.success(`Saved: ${saved?.title || file.name}`, { id: toastId })
           onUploadSuccess?.()
-        } catch (err: any) {
-          toast.error(err.response?.data?.message || err.message || "Failed to upload file", {
+        } catch (err) {
+          toast.error(apiErrorMessage(err, "Failed to upload file"), {
             id: toastId,
           })
         }

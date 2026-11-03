@@ -30,9 +30,7 @@ type Collaboration = {
 }
 
 const errorMessage = (error: any, fallback: string) =>
-  error?.response?.data?.message && typeof error.response.data.message === "string"
-    ? error.response.data.message
-    : fallback
+  typeof error?.response?.data?.error?.message === "string" ? error.response.data.error.message : fallback
 
 function Initial({ person }: { person: Person }) {
   return (
@@ -174,13 +172,13 @@ export function ShareFolderDialog({ folder }: { folder: { id: string; name: stri
     queryKey: collaborationKey,
     enabled: open,
     queryFn: async ({ signal }) =>
-      (await AXIOS_INSTANCE.get<{ data: Collaboration }>(`${endpoint}/collaboration`, { signal })).data.data,
+      (await AXIOS_INSTANCE.get<Collaboration>(`${endpoint}/collaboration`, { signal })).data,
   })
   const sharing = useQuery({
     queryKey: shareKey,
     enabled: open,
     queryFn: async ({ signal }) =>
-      (await AXIOS_INSTANCE.get<{ data: { shareToken: string | null } }>(`${endpoint}/share`, { signal })).data.data,
+      ({ shareToken: (await AXIOS_INSTANCE.get<{ shareToken: string | null }>(`${endpoint}/share`, { signal })).data.shareToken }),
   })
 
   const [email, setEmail] = React.useState("")
@@ -250,8 +248,8 @@ export function ShareFolderDialog({ folder }: { folder: { id: string; name: stri
 
   const createInvite = (role: FolderRole) =>
     run("invite", async () => {
-      const response = await AXIOS_INSTANCE.put<{ data: { token: string } }>(`${endpoint}/invitation`, { role })
-      const token = response.data.data.token
+      const response = await AXIOS_INSTANCE.put<{ token: string }>(`${endpoint}/invitation`, { role })
+      const token = response.data.token
       setInviteToken(token)
       // Copy right away; the Copy link action stays available if the browser refuses.
       try {
@@ -275,9 +273,9 @@ export function ShareFolderDialog({ folder }: { folder: { id: string; name: stri
     setBusy("public")
     try {
       const response = enabled
-        ? await AXIOS_INSTANCE.put<{ data: { shareToken: string | null } }>(`${endpoint}/share`)
-        : await AXIOS_INSTANCE.delete<{ data: { shareToken: string | null } }>(`${endpoint}/share`)
-      queryClient.setQueryData(shareKey, response.data.data)
+        ? await AXIOS_INSTANCE.post<{ shareToken: string | null }>(`${endpoint}/share`)
+        : await AXIOS_INSTANCE.delete<{ shareToken: string | null }>(`${endpoint}/share`)
+      queryClient.setQueryData(shareKey, { shareToken: response.data.shareToken })
       toast.success(enabled ? "Anyone with the link can now view this folder" : "Public link turned off")
     } catch {
       toast.error("Could not update public access")

@@ -10,7 +10,7 @@ import type { DuplicateGroupDto } from './duplicateGroupDto.js';
 export interface DuplicateReportResponse {
   groups: DuplicateGroupDto[];
   /** @minimum 0 */
-  total_duplicate_groups: number;
+  totalDuplicateGroups: number;
   /** @minimum 0 */
-  total_redundant_items: number;
+  totalRedundantItems: number;
 }

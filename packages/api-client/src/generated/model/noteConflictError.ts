@@ -8,6 +8,6 @@
 
 export interface NoteConflictError {
   code: string;
-  current_revision: number;
+  currentRevision: number;
   message: string;
 }

@@ -15,9 +15,15 @@ const [bundle, css] = await Promise.all([
     platform: "browser", format: "esm", jsx: "automatic", define: { "process.env.NODE_ENV": '"development"', "process.env": "{}" } }),
   readFile(`${root}src/app/globals.css`, "utf8").then((source) => postcss([tailwind({ base: root })]).process(source, { from: `${root}src/app/globals.css` })),
 ])
+const loadedThumbnails = new Set()
 const server = createServer((req, res) => {
   if (req.url === "/app.js") { res.setHeader("Content-Type", "text/javascript"); res.end(bundle.outputFiles[0].text) }
   else if (req.url === "/style.css") { res.setHeader("Content-Type", "text/css"); res.end(css.css) }
+  else if (req.url.startsWith("/thumb/")) {
+    loadedThumbnails.add(req.url)
+    res.setHeader("Content-Type", "image/svg+xml")
+    res.end('<svg xmlns="http://www.w3.org/2000/svg" width="320" height="240"><rect width="320" height="240" fill="#ccc"/></svg>')
+  }
   else if (req.url === "/late.svg") {
     setTimeout(() => { res.setHeader("Content-Type", "image/svg+xml"); res.end('<svg xmlns="http://www.w3.org/2000/svg" width="320" height="480"><rect width="320" height="480" fill="#ccc"/></svg>') }, 150)
   } else res.end('<html><head><link rel="stylesheet" href="/style.css"></head><body><div id="root"></div><script type="module" src="/app.js"></script></body></html>')
@@ -51,6 +57,7 @@ try {
     })).toBe(true)
   }
   await expect(card(0)).toBeVisible()
+  await expect(card(2).locator('img').first()).toHaveClass(/opacity-100/)
   await noOverlap()
   assert.ok((await card(0).boundingBox()).height < (await card(2).boundingBox()).height)
 
@@ -153,7 +160,8 @@ try {
   await touchPage.goto(`http://127.0.0.1:${server.address().port}`)
   const touchCard = (i) => touchPage.locator(`[data-slot="masonry"] [aria-label="Reorder Bookmark ${i}"]`)
   await expect(touchCard(0)).toBeVisible()
-  await expect(touchPage.locator('[aria-label="Loading thumbnail"]')).toHaveCount(0)
+  await expect(touchCard(0).locator('img').first()).toHaveClass(/opacity-100/)
+  await expect(touchCard(1).locator('img').first()).toHaveClass(/opacity-100/)
   const a = await touchCard(0).boundingBox(), b = await touchCard(1).boundingBox()
   const session = await touchPage.context().newCDPSession(touchPage)
   await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: a.x + 5, y: a.y + a.height / 2 }] })
@@ -164,7 +172,45 @@ try {
   await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
   await expect(touchPage.locator("#order")).toHaveText(/^b1,b0,b2,/)
   await touchPage.close()
+  await page.getByRole("button", { name: "Load large library", exact: true }).click()
+  await expect(page.locator('[data-slot="masonry-item"]')).toHaveCount(300)
+  await expect(card(0).locator('img').first()).toHaveClass(/opacity-100/)
+  await page.waitForTimeout(500)
+  const initiallyLoaded = loadedThumbnails.size
+  assert.ok(initiallyLoaded < 150, `Offscreen thumbnails must stay lazy; fetched ${initiallyLoaded}/300`)
+  await card(299).scrollIntoViewIfNeeded()
+  await expect(card(299).locator('img').first()).toHaveClass(/opacity-100/)
+  await noOverlap()
+  await page.route("**/v1/bookmarks/proxy-image/sign", async (route) => {
+    const { urls } = route.request().postDataJSON()
+    await route.fulfill({
+      contentType: "application/json",
+      headers: { "access-control-allow-origin": route.request().headers().origin, "access-control-allow-credentials": "true" },
+      body: JSON.stringify({ items: urls.map((url) => ({ url, signedUrl: `/v1/bookmarks/proxy-image?url=${encodeURIComponent(url)}&sig=test` })) }),
+    })
+  })
+  await page.route("**/v1/bookmarks/proxy-image?*", async (route) => {
+    if (route.request().url().includes("site-icon.svg")) {
+      await route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><rect width="24" height="24" fill="#56734d"/></svg>' })
+    } else await route.abort()
+  })
+  await page.getByRole("button", { name: "Remove preview", exact: true }).click()
+  await card(0).scrollIntoViewIfNeeded()
+  const icon = card(0).locator('img[width="24"]')
+  await expect(icon).toBeVisible()
+  await expect.poll(() => icon.evaluate((image) => image.naturalWidth)).toBe(24)
+  for (const width of [1440, 768, 390]) {
+    await page.setViewportSize({ width, height: 900 })
+    await card(0).scrollIntoViewIfNeeded()
+    await card(0).screenshot({ path: `/tmp/atlas-thumbnail-fallback-${width}.png` })
+  }
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await icon.evaluate((image) => image.dispatchEvent(new Event("error")))
+  await expect(icon).toBeHidden()
+  await expect(card(0)).toContainText("example.com")
+  await noOverlap()
   assert.equal(errors.length, 0, errors.join("\n"))
+  console.log(`PASS large library: ${initiallyLoaded}/300 thumbnails requested initially; last card loads after scrolling`)
   console.log("PASS moodboard: masonry sizing, four-way drag, keyboard/cancel, late images, removal/append, columns/resize, nested scrolling, multi-bookmark folder drops, controls, trash, pin locks, sort menu and persisted preferences")
 } finally {
   await browser.close()

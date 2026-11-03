@@ -25,14 +25,19 @@ export interface MetadataActivity {
 }
 export interface CabinetActivity { summary: ActivityOverview; tasks: BackgroundTask[]; metadata: MetadataActivity[]; page: number; hasMore: boolean }
 export interface LatencyMeasurement {
-  name: string; count: number; errors: number; samples: number; p50Ms: number | null; p95Ms: number | null; maxMs: number | null
+  name: string
+  count: number
+  errors: number
+  samples: number
+  p50Ms?: number | null
+  p95Ms?: number | null
+  maxMs?: number | null
 }
 export interface OperationsMetrics {
-  startedAt: string; measuredAt: string; uptimeSeconds: number
-  memoryBytes: { rss: number; heapUsed: number; heapTotal: number; external: number }
-  cpuTotalMicros: number
-  cpuPercent: number | null; eventLoop: { meanMs: number | null; p95Ms: number | null }
-  routes: LatencyMeasurement[]; queries: LatencyMeasurement[]
-  jobs: { tasks: Record<string, number>; metadata: Record<string, number> }
+  uptimeSeconds: number
+  rssBytes: number | null
+  routes: LatencyMeasurement[]
+  tasks: Record<string, number>
+  metadata: Record<string, number>
   sampling: string
 }

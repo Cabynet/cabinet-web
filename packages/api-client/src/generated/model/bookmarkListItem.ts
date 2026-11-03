@@ -8,28 +8,42 @@
 import type { BookmarkTagSummary } from './bookmarkTagSummary.js';
 
 export interface BookmarkListItem {
-  created_at: string;
+  access: string;
+  /** @nullable */
+  contentType?: string | null;
+  createdAt: string;
+  /** @nullable */
+  deletedAt?: string | null;
   /** @nullable */
   description?: string | null;
+  drawing?: unknown | null;
   /** @nullable */
-  favicon_url?: string | null;
+  faviconUrl?: string | null;
   /** @nullable */
-  folder_id?: string | null;
+  folderId?: string | null;
   id: string;
-  is_archived: boolean;
-  is_favorite: boolean;
-  is_pinned: boolean;
-  item_type: string;
-  metadata_status: string;
+  isArchived: boolean;
+  isFavorite: boolean;
+  isPinned: boolean;
+  itemType: string;
   /** @nullable */
-  normalized_domain?: string | null;
+  metadataError?: string | null;
+  metadataStatus: string;
   /** @nullable */
-  raw_url?: string | null;
+  normalizedDomain?: string | null;
+  noteDocument?: unknown | null;
+  noteRevision: number;
   /** @nullable */
-  site_name?: string | null;
+  notesPlain?: string | null;
+  position: number;
+  /** @nullable */
+  rawUrl?: string | null;
+  /** @nullable */
+  siteName?: string | null;
   tags: BookmarkTagSummary[];
   /** @nullable */
-  thumbnail_url?: string | null;
+  thumbnailUrl?: string | null;
   title: string;
-  updated_at: string;
+  updatedAt: string;
+  userId: string;
 }

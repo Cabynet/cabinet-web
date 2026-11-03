@@ -8,15 +8,25 @@
 
 export interface CreateBookmarkRequest {
   /** @nullable */
-  client_request_id?: string | null;
+  clientRequestId?: string | null;
+  /** @nullable */
+  contentType?: string | null;
   /** @nullable */
   description?: string | null;
+  drawing?: unknown | null;
   /** @nullable */
-  folder_id?: string | null;
+  faviconUrl?: string | null;
   /** @nullable */
-  item_type?: string | null;
+  folderId?: string | null;
+  /** @nullable */
+  itemType?: string | null;
+  noteDocument?: unknown | null;
+  /** @nullable */
+  notesPlain?: string | null;
   /** @nullable */
   tags?: string[] | null;
+  /** @nullable */
+  thumbnailUrl?: string | null;
   /** @nullable */
   title?: string | null;
   /** @nullable */

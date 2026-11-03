@@ -7,7 +7,7 @@
  */
 
 export interface ConfirmUploadResponse {
-  asset_id: string;
-  public_url: string;
+  assetId: string;
+  publicUrl: string;
   status: string;
 }

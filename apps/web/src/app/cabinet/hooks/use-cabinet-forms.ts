@@ -7,6 +7,11 @@ import * as z from "zod"
 import { toast } from "@/components/ui/sonner"
 import { useConfirm } from "@/hooks/use-confirm"
 import { editorPath, itemAccess } from "@/lib/bookmark-kind"
+import type { Bookmark } from "@/lib/api-model"
+import type { folderFromApi } from "@/lib/api-model"
+import type { useBookmarksControllerCreate, useBookmarksControllerUpdate, useFoldersControllerCreate, useFoldersControllerRemove, useFoldersControllerUpdate } from "@/lib/api-client"
+
+type Folder = ReturnType<typeof folderFromApi>
 
 export const folderSchema = z.object({
   name: z
@@ -26,11 +31,11 @@ export const bookmarkSchema = z.object({
 })
 
 interface UseCabinetFormsOptions {
-  updateFolderMutation: any
-  createFolderMutation: any
-  removeFolderMutation: any
-  updateBookmarkMutation: any
-  createBookmarkMutation: any
+  updateFolderMutation: ReturnType<typeof useFoldersControllerUpdate>
+  createFolderMutation: ReturnType<typeof useFoldersControllerCreate>
+  removeFolderMutation: ReturnType<typeof useFoldersControllerRemove>
+  updateBookmarkMutation: ReturnType<typeof useBookmarksControllerUpdate>
+  createBookmarkMutation: ReturnType<typeof useBookmarksControllerCreate>
   invalidateAllQueries: () => Promise<unknown> | void
   selectedFolderId?: string
   setSelectedFolderId: (id: string | undefined) => void
@@ -53,9 +58,9 @@ export function useCabinetForms({
   const router = useRouter()
   const confirm = useConfirm()
 
-  const [folderToEdit, setFolderToEdit] = useState<any | null>(null)
+  const [folderToEdit, setFolderToEdit] = useState<Folder | null>(null)
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false)
-  const [bookmarkToEdit, setBookmarkToEdit] = useState<any | null>(null)
+  const [bookmarkToEdit, setBookmarkToEdit] = useState<Bookmark | null>(null)
   const [isBookmarkModalOpen, setIsBookmarkModalOpen] = useState(false)
 
   const resetFolderForm = useCallback(() => {
@@ -79,8 +84,8 @@ export function useCabinetForms({
             id: folderToEdit.id,
             data: {
               name: value.name,
-              description: value.description || undefined,
-              parentId: value.parentId || undefined,
+              description: value.description || null,
+              parentId: value.parentId || null,
             },
           })
         } else {
@@ -145,7 +150,7 @@ export function useCabinetForms({
             // Someone else's link in a folder you edit: only its shared content can change.
             data: itemAccess(bookmarkToEdit) === "owner"
               ? {
-                  type: "BOOKMARK" as any,
+                  type: "BOOKMARK",
                   url: targetUrl,
                   title: value.title,
                   description: value.description,
@@ -158,7 +163,7 @@ export function useCabinetForms({
         } else {
           await createBookmarkMutation.mutateAsync({
             data: {
-              type: "BOOKMARK" as any,
+              type: "BOOKMARK",
               url: targetUrl,
               title: value.title || undefined,
               description: value.description || undefined,
@@ -178,7 +183,7 @@ export function useCabinetForms({
     },
   })
 
-  const handleEditFolder = useCallback((folder: any) => {
+  const handleEditFolder = useCallback((folder: Folder) => {
     setFolderToEdit(folder)
     folderForm.setFieldValue("name", folder.name)
     folderForm.setFieldValue("description", folder.description || "")
@@ -214,7 +219,7 @@ export function useCabinetForms({
     setIsFolderModalOpen(true)
   }, [folderForm])
 
-  const handleEditBookmark = useCallback((bookmark: any) => {
+  const handleEditBookmark = useCallback((bookmark: Bookmark) => {
     const path = editorPath(bookmark)
     if (path) {
       router.push(path)
@@ -227,7 +232,7 @@ export function useCabinetForms({
     bookmarkForm.setFieldValue("folderId", bookmark.folderId || "")
     bookmarkForm.setFieldValue(
       "tags",
-      bookmark.tags?.map((t: any) => `#${t.name}`) || []
+      bookmark.tags?.map((t: { name: string }) => `#${t.name}`) || []
     )
     setIsBookmarkModalOpen(true)
   }, [bookmarkForm, router])

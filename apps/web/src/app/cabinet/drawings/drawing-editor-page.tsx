@@ -7,7 +7,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { Excalidraw, MainMenu, WelcomeScreen, exportToBlob, hashElementsVersion } from "@excalidraw/excalidraw"
 import "@excalidraw/excalidraw/index.css"
 import { ArrowLeft, FolderSimple } from "@phosphor-icons/react"
-import { AXIOS_INSTANCE, useFoldersControllerFindAll } from "@/lib/api-client"
+import { AXIOS_INSTANCE, getBookmark, useFoldersControllerFindAll } from "@/lib/api-client"
 import { authClient } from "@/lib/auth-client"
 import { NoteAutosave, type NoteSaveStatus } from "@/lib/note-autosave"
 import { canAddToFolder } from "@/lib/folder-roles"
@@ -62,9 +62,8 @@ export default function DrawingEditorPage({ drawingId }: { drawingId: string }) 
     setLoaded(null)
     setLoadError(null)
     const params = new URLSearchParams(window.location.search)
-    AXIOS_INSTANCE.get(`/v1/bookmarks/${drawingId}`, { signal: controller.signal })
-      .then((response) => {
-        const item = response.data.data
+    getBookmark(drawingId, controller.signal)
+      .then((item) => {
         if (item.type !== "DRAWING") throw Object.assign(new Error("not a drawing"), { notDrawing: true })
         setLoaded({
           title: item.title ?? "",
@@ -117,7 +116,7 @@ function DrawingCanvas({ drawingId, initial }: { drawingId: string; initial: Loa
   const queryClient = useQueryClient()
   const { resolvedTheme } = useTheme()
   const { data: foldersData } = useFoldersControllerFindAll()
-  const folders: any[] = (foldersData as any)?.data || []
+  const folders = foldersData || []
   const access = initial.access
   const [title, setTitle] = useState(initial.title)
   const [folderId, setFolderId] = useState<string | undefined>(initial.folderId)
@@ -135,7 +134,8 @@ function DrawingCanvas({ drawingId, initial }: { drawingId: string; initial: Loa
     let active = true
     const queue = new NoteAutosave<Snapshot>(
       async (snapshot) => {
-        const preview = await renderPreview(snapshot.scene).catch(() => undefined)
+        // An empty canvas renders "", which the API rejects; omit it instead.
+        const preview = (await renderPreview(snapshot.scene).catch(() => undefined)) || undefined
         await AXIOS_INSTANCE.put(`/v1/bookmarks/${drawingId}/drawing`, {
           title: snapshot.title,
           // null moves the drawing to Unfiled; editors' folder changes are ignored by the server.

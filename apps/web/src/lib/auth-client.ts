@@ -38,15 +38,10 @@ export const authClient = {
                 id: user.id,
                 email: user.email,
                 name: user.name,
-                avatar: user.avatar_url,
-                avatarUrl: user.avatar_url,
+                avatar: user.avatarUrl,
+                avatarUrl: user.avatarUrl,
               },
-              session: {
-                id: user.id,
-                userId: user.id,
-                expiresAt: new Date(Date.now() + 30 * 86400 * 1000).toISOString(),
-                createdAt: new Date().toISOString(),
-              },
+              session: user.session,
             }
           }
           return null
@@ -184,41 +179,32 @@ export const authClient = {
 
   signOut: async (): Promise<{ error: AuthError }> => {
     try {
-      await fetch(`${API_URL}/v1/auth/logout`, {
+      const response = await fetch(`${API_URL}/v1/auth/logout`, {
         method: "POST",
         credentials: "include",
       })
+      if (!response.ok) return { error: { message: "Could not sign out. Try again." } }
       window.location.href = "/login"
       return { error: null }
     } catch (err: any) {
-      window.location.href = "/login"
       return { error: { message: err?.message || "Sign-out failed" } }
     }
   },
 
-  listAccounts: async (): Promise<{ data: any[]; error: AuthError }> => ({
-    data: [],
-    error: null,
-  }),
-
-  linkSocial: async (_: any): Promise<{ error: AuthError }> => ({
-    error: null,
-  }),
-
-  unlinkAccount: async (_: any): Promise<{ error: AuthError }> => ({
-    error: null,
-  }),
-
-  deleteUser: async (_?: any): Promise<{ error: AuthError }> => {
+  // Accounts with a password must send it; the API answers 401 otherwise.
+  deleteUser: async (opts?: { currentPassword?: string }): Promise<{ error: AuthError }> => {
     try {
-      await fetch(`${API_URL}/v1/users/me`, {
+      const response = await fetch(`${API_URL}/v1/users/me`, {
         method: "DELETE",
         credentials: "include",
+        ...(opts?.currentPassword ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ currentPassword: opts.currentPassword }) } : {}),
       })
-      window.location.href = "/login"
+      if (!response.ok) {
+        const body = await response.json()
+        return { error: { message: body.error?.message || "Failed to delete account", code: body.error?.code } }
+      }
       return { error: null }
     } catch (err: any) {
-      window.location.href = "/login"
       return { error: { message: err?.message || "Failed to delete account" } }
     }
   },

@@ -43,16 +43,17 @@ export function CommandMenu(props: CommandMenuProps) {
   const matches = (label: string) => search.trim().toLowerCase().split(/\s+/).every((word) => label.toLowerCase().includes(word))
   const mod = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform) ? '⌘' : 'Ctrl+'
   React.useEffect(() => { if (!props.open) setSearch('') }, [props.open])
+  const { open, onOpenChange } = props
   React.useEffect(() => {
     const down = (event: KeyboardEvent) => {
       if (event.key.toLowerCase() === 'k' && (event.metaKey || event.ctrlKey)) {
         event.preventDefault()
-        props.onOpenChange(!props.open)
+        onOpenChange(!open)
       }
     }
     document.addEventListener('keydown', down)
     return () => document.removeEventListener('keydown', down)
-  }, [props.open, props.onOpenChange])
+  }, [open, onOpenChange])
 
   const actions: Action[] = [
     { label: 'Add bookmark', icon: Plus, run: props.onOpenAddBookmark, shortcut: 'B' },
@@ -94,7 +95,11 @@ export function CommandMenu(props: CommandMenuProps) {
           const inCabinet = !!editorPath(bookmark)
           return <CommandItem key={bookmark.id} value={`bookmark ${bookmark.id}`} disabled={!safe && !inCabinet} onSelect={() => select(() => props.onOpenBookmark(bookmark))}>
             {isDrawingBookmark(bookmark) ? <Scribble /> : inCabinet ? <FileText /> : <MagnifyingGlass />}<span className="truncate">{bookmark.title || safe?.hostname || 'Untitled'}</span>
-            {safe && <span className="ml-auto max-w-40 shrink-0 truncate text-xs text-muted-foreground">{safe.hostname.replace(/^www\./, '')}</span>}
+            {safe && (
+              <CommandShortcut className="max-w-64 shrink-0 truncate">
+                {safe.hostname.replace(/^www\./, '')}
+              </CommandShortcut>
+            )}
           </CommandItem>
         })}
       </CommandGroup></>}

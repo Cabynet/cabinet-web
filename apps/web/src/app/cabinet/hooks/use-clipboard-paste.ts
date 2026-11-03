@@ -4,13 +4,15 @@ import { useEffect, useRef } from "react"
 import { toast } from "@/components/ui/sonner"
 import { bookmarkUrl } from "@/lib/bookmark-url"
 import { findExistingBookmark } from "./use-bookmark-search"
+import type { Bookmark } from "@/lib/api-model"
+import type { useBookmarksControllerCreate } from "@/lib/api-client"
 
 interface ClipboardPasteOptions {
-  createBookmarkMutation: any
+  createBookmarkMutation: ReturnType<typeof useBookmarksControllerCreate>
   invalidateAllQueries: () => void
   selectedFolderId?: string
   isModalOpen: boolean
-  onEditBookmark?: (bookmark: any) => void
+  onEditBookmark?: (bookmark: Bookmark) => void
 }
 
 export function useClipboardPaste(options: ClipboardPasteOptions) {
@@ -36,7 +38,7 @@ export function useClipboardPaste(options: ClipboardPasteOptions) {
       const save = async () => {
         const id = toast.loading('Saving bookmark from clipboard…')
         toastIds.add(id)
-        const action = (bookmark: any) => latest.current.onEditBookmark && bookmark?.id && bookmark.canEdit !== false
+        const action = (bookmark: Bookmark | null) => latest.current.onEditBookmark && bookmark?.id && bookmark.canEdit !== false
           ? { label: 'Edit', onClick: () => { if (mounted) latest.current.onEditBookmark?.(bookmark) } } : undefined
         try {
           const existing = await findExistingBookmark(canonical, controller.signal)
@@ -49,7 +51,7 @@ export function useClipboardPaste(options: ClipboardPasteOptions) {
           const url = /^[a-z][a-z\d+.-]*:/i.test(text) ? text : `https://${text}`
           const response = await createBookmarkMutation.mutateAsync({ data: { url, folderId: selectedFolderId || undefined } })
           if (!mounted) return
-          const saved = response?.data?.data ?? response?.data ?? response
+          const saved = response
           invalidateAllQueries()
           toast.success(`Saved: ${saved?.title || url}`, { id, action: action(saved), duration: 8000 })
         } catch {

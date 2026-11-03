@@ -6,34 +6,7 @@ export type SharedBookmark = {
   imageUrl: string | null
 }
 
-export type SharedNote = { id: string; title: string; text: string }
-
-export type SharedDrawing = { id: string; title: string; preview: string | null }
-
-export type SharedCollection = { name: string; bookmarks: SharedBookmark[]; notes?: SharedNote[]; drawings?: SharedDrawing[] }
-
-/** Shared drawings show only an embedded image preview; any other address is dropped. */
-export function sharedDrawingItems(drawings: SharedDrawing[] = []) {
-  return drawings.map((drawing) => ({
-    ...drawing,
-    title: drawing.title || "Untitled drawing",
-    preview: drawing.preview && /^data:image\/(png|webp|jpeg);base64,/.test(drawing.preview) ? drawing.preview : null,
-    searchText: (drawing.title || "").toLowerCase(),
-  }))
-}
-
-export type SharedDrawingItem = ReturnType<typeof sharedDrawingItems>[number]
-
-/** Notes shared with a public collection, indexed for the page's local search. */
-export function sharedNoteItems(notes: SharedNote[] = []) {
-  return notes.map((note) => ({
-    ...note,
-    title: note.title || "Untitled note",
-    searchText: `${note.title} ${note.text}`.toLowerCase(),
-  }))
-}
-
-export type SharedNoteItem = ReturnType<typeof sharedNoteItems>[number]
+export type SharedCollection = { name: string; bookmarks: SharedBookmark[] }
 
 export function safeHttpUrl(url: string) {
   try {
@@ -45,7 +18,7 @@ export function safeHttpUrl(url: string) {
   return null
 }
 
-export function sharedCollectionItems(bookmarks: SharedBookmark[], apiUrl: string) {
+export function sharedCollectionItems(bookmarks: SharedBookmark[]) {
   return bookmarks.flatMap((bookmark) => {
     const safe = safeHttpUrl(bookmark.url)
     if (!safe) return []
@@ -53,7 +26,8 @@ export function sharedCollectionItems(bookmarks: SharedBookmark[], apiUrl: strin
     return [{
       ...bookmark,
       ...safe,
-      preview: image ? `${apiUrl}/v1/bookmarks/proxy-image?v=2&url=${encodeURIComponent(image.href)}` : null,
+      // Raw image URL; the page signs it for the proxy with the share token (see useProxiedImageUrl).
+      preview: image ? image.href : null,
       searchText: `${bookmark.title} ${bookmark.description || ""} ${safe.href} ${safe.hostname}`.toLowerCase(),
     }]
   })

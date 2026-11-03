@@ -42,15 +42,28 @@ export async function prepareCabinetImages() {
   }))
   return images
 }
+export function apiBookmark(item) {
+  return { id: item.id, userId: item.userId, itemType: item.type === "BOOKMARK" ? "LINK" : item.type,
+    rawUrl: item.url || null, normalizedDomain: item.url ? new URL(item.url).hostname : null,
+    title: item.title, description: item.description ?? null, thumbnailUrl: item.imageUrl ?? null,
+    faviconUrl: item.faviconUrl ?? null, contentType: item.contentType ?? null, siteName: item.siteName ?? null,
+    folderId: item.folderId ?? null, isPinned: item.isPinned ?? false, isFavorite: item.isFavorite ?? false,
+    isArchived: item.isArchived ?? false, metadataStatus: item.metadataStatus ?? "COMPLETED",
+    notesPlain: item.notes ?? "", noteDocument: item.noteDocument ?? null, noteRevision: item.noteRevision ?? 0,
+    drawing: item.drawing ?? null, access: item.access ?? "owner", tags: item.tags ?? [],
+    createdAt: item.createdAt ?? "2026-01-01T00:00:00Z", updatedAt: item.updatedAt ?? "2026-01-01T00:00:00Z", deletedAt: item.deletedAt ?? null }
+}
+export function apiFolder(item) { return { ...item, parentId: item.parentId, access: item.access ?? (item.isOwner === false ? "CONTRIBUTOR" : "OWNER"), shareEnabled: item.shareEnabled ?? false } }
 export function cabinetResponse(url) {
   const { pathname: path, searchParams: params } = new URL(url)
-  if (path.endsWith("/auth/get-session")) return { user: { id: "owner", name: "Raka Pradana", email: "raka@cabinet.test" }, session: { id: "test", expiresAt: "2099-01-01T00:00:00Z" } }
-  if (path.endsWith("/folders")) return { data: [folder] }
-  if (path.endsWith("/tags")) return { data: [{ id: "design", name: "design" }] }
-  if (path.endsWith("/health")) return { data: { total: bookmarks.length, ok: bookmarks.length, broken: 0, redirected: 0, favorites: bookmarks.filter((item) => item.isFavorite).length, archived: 0, trash: 0, duplicates: 0 } }
+  if (path.endsWith("/auth/me")) return { id: "owner", name: "Raka Pradana", email: "raka@cabinet.test", session: { id: "test", userId: "owner", createdAt: new Date().toISOString(), expiresAt: "2099-01-01T00:00:00Z" } }
+  if (path.endsWith("/folders")) return [apiFolder(folder)]
+  if (path.endsWith("/tags")) return [{ id: "design", name: "design", slug: "design", bookmarkCount: 1 }]
+  if (path.endsWith("/health")) return { total: bookmarks.length, healthy: bookmarks.length, broken: 0, trash: 0 }
+  if (path.endsWith("/duplicates")) return { groups: [], totalDuplicateGroups: 0, totalRedundantItems: 0 }
   if (path.endsWith("/bookmarks")) {
     const data = bookmarks.filter((item) => (!params.get("type") || item.type === params.get("type")) && (!params.get("search") || `${item.title} ${item.description}`.toLowerCase().includes(params.get("search").toLowerCase())) && (params.get("isFavorite") !== "true" || item.isFavorite))
-    return { data: { data, totalCount: data.length, nextCursor: null } }
+    return { items: data.map(apiBookmark), totalCount: data.length, nextCursor: null, hasMore: false }
   }
-  return { data: [] }
+  return []
 }

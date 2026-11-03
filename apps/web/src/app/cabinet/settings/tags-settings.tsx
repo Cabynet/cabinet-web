@@ -86,7 +86,7 @@ export function TagsSettings() {
   const confirm = useConfirm()
   const queryClient = useQueryClient()
   const { data, isLoading, isError, refetch } = useTagsControllerFindAll()
-  const tags: any[] = (data as any)?.data || []
+  const tags: any[] = data || []
   const [query, setQuery] = React.useState("")
   const [toRename, setToRename] = React.useState<any | null>(null)
   const [toMerge, setToMerge] = React.useState<any | null>(null)
@@ -133,7 +133,7 @@ export function TagsSettings() {
     setCleaning(true)
     try {
       const response = await AXIOS_INSTANCE.delete("/v1/tags/unused")
-      const deleted = response.data?.data?.deleted ?? unused.length
+      const deleted = response.data.deleted
       await refresh()
       toast.success(`Deleted ${deleted === 1 ? "1 tag" : `${deleted} tags`}`)
     } catch {

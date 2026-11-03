@@ -1,21 +1,22 @@
 "use client"
 
+import { useInvalidate } from "./use-invalidate"
 import { useCallback, useRef } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "@/components/ui/sonner"
 import { useConfirm } from "@/hooks/use-confirm"
-import { AXIOS_INSTANCE } from "@/lib/api-client"
+import { AXIOS_INSTANCE, getBookmark as loadBookmark, type useBookmarksControllerCreate, type useBookmarksControllerUpdate, type useBookmarksControllerRemove } from "@/lib/api-client"
+import type { Bookmark } from "@/lib/api-model"
 import { useBookmarkCache } from "./use-bookmark-cache"
 
 interface BookmarkMutationsOptions {
-  updateBookmarkMutation: any
-  createBookmarkMutation: any
-  removeBookmarkMutation: any
-  invalidateAllQueries: () => Promise<unknown> | void
+  updateBookmarkMutation: ReturnType<typeof useBookmarksControllerUpdate>
+  createBookmarkMutation: ReturnType<typeof useBookmarksControllerCreate>
+  removeBookmarkMutation: ReturnType<typeof useBookmarksControllerRemove>
   selectedBookmarkIds: string[]
   setSelectedBookmarkIds: (ids: string[]) => void
   /** Looks up a loaded bookmark so a move can be undone to its previous folder. */
-  getBookmark?: (id: string) => any
+  getBookmark?: (id: string) => Bookmark | undefined
 }
 
 const countLabel = (count: number) => (count === 1 ? "1 item" : `${count} items`)
@@ -24,7 +25,6 @@ export function useBookmarkMutations({
   updateBookmarkMutation,
   createBookmarkMutation,
   removeBookmarkMutation,
-  invalidateAllQueries,
   selectedBookmarkIds,
   setSelectedBookmarkIds,
   getBookmark,
@@ -32,7 +32,13 @@ export function useBookmarkMutations({
   const confirm = useConfirm()
   const queryClient = useQueryClient()
   const pinning = useRef(new Set<string>())
+  // The mutation wrappers are new objects every render; reading the latest through a ref keeps
+  // the handlers below stable, so memoized cards don't re-render on every parent render.
+  const mutations = useRef({ updateBookmarkMutation, createBookmarkMutation, removeBookmarkMutation })
+  mutations.current = { updateBookmarkMutation, createBookmarkMutation, removeBookmarkMutation }
   const { updateBookmarkInCache, removeBookmarkFromCache } = useBookmarkCache()
+
+  const { invalidateBookmarks, invalidateFolders, invalidateTags } = useInvalidate()
 
   // Reversible actions run immediately and offer Undo instead of asking first.
   const toastWithUndo = useCallback(
@@ -44,28 +50,28 @@ export function useBookmarkMutations({
           onClick: async () => {
             try {
               await undo()
-              await invalidateAllQueries()
+              await invalidateBookmarks()
               toast.success("Action undone")
             } catch {
-              await invalidateAllQueries()
+              await invalidateBookmarks()
               toast.error("Could not undo. Check Trash or Archive.")
             }
           },
         },
       })
     },
-    [invalidateAllQueries]
+    [invalidateBookmarks]
   )
 
   const toggleFavorite = useCallback(
-    async (bookmark: any) => {
+    async (bookmark: Bookmark) => {
       const nextState = !bookmark.isFavorite
       updateBookmarkInCache(bookmark.id, (b) => ({
         ...b,
         isFavorite: nextState,
       }))
       try {
-        await updateBookmarkMutation.mutateAsync({
+        await mutations.current.updateBookmarkMutation.mutateAsync({
           id: bookmark.id,
           data: { isFavorite: nextState },
         })
@@ -77,14 +83,14 @@ export function useBookmarkMutations({
         toast.error("Failed to update favorite status")
       }
     },
-    [updateBookmarkMutation, updateBookmarkInCache]
+    [updateBookmarkInCache]
   )
 
-  const togglePin = useCallback(async (bookmark: any) => {
+  const togglePin = useCallback(async (bookmark: Bookmark) => {
     if (pinning.current.has(bookmark.id)) return
     pinning.current.add(bookmark.id)
     try {
-      await updateBookmarkMutation.mutateAsync({
+      await mutations.current.updateBookmarkMutation.mutateAsync({
         id: bookmark.id,
         data: { isPinned: !bookmark.isPinned },
       })
@@ -100,24 +106,24 @@ export function useBookmarkMutations({
     } finally {
       pinning.current.delete(bookmark.id)
     }
-  }, [updateBookmarkMutation, queryClient])
+  }, [queryClient])
 
   const toggleArchive = useCallback(
-    async (bookmark: any) => {
+    async (bookmark: Bookmark) => {
       const nextState = !bookmark.isArchived
       updateBookmarkInCache(bookmark.id, (b) => ({
         ...b,
         isArchived: nextState,
       }))
       try {
-        await updateBookmarkMutation.mutateAsync({
+        await mutations.current.updateBookmarkMutation.mutateAsync({
           id: bookmark.id,
           data: { isArchived: nextState },
         })
         // The item may no longer belong to the current view.
-        void invalidateAllQueries()
+        void invalidateBookmarks()
         const undo = () =>
-          updateBookmarkMutation.mutateAsync({
+          mutations.current.updateBookmarkMutation.mutateAsync({
             id: bookmark.id,
             data: { isArchived: bookmark.isArchived },
           })
@@ -130,7 +136,7 @@ export function useBookmarkMutations({
         toast.error("Failed to update archive status")
       }
     },
-    [updateBookmarkMutation, updateBookmarkInCache, invalidateAllQueries, toastWithUndo]
+    [updateBookmarkInCache, invalidateBookmarks, toastWithUndo]
   )
 
   const handleDeleteBookmark = useCallback(
@@ -138,17 +144,17 @@ export function useBookmarkMutations({
       removeBookmarkFromCache(id)
       setSelectedBookmarkIds(selectedBookmarkIds.filter((selected) => selected !== id))
       try {
-        await removeBookmarkMutation.mutateAsync({ id })
-        void invalidateAllQueries()
+        await mutations.current.removeBookmarkMutation.mutateAsync({ id })
+        void invalidateBookmarks()
         toastWithUndo("Moved to Trash", () =>
           AXIOS_INSTANCE.post(`/v1/bookmarks/${id}/restore`)
         )
       } catch {
-        invalidateAllQueries()
+        void invalidateBookmarks()
         toast.error("Failed to move item to Trash")
       }
     },
-    [removeBookmarkMutation, removeBookmarkFromCache, invalidateAllQueries, toastWithUndo, selectedBookmarkIds, setSelectedBookmarkIds]
+    [removeBookmarkFromCache, invalidateBookmarks, toastWithUndo, selectedBookmarkIds, setSelectedBookmarkIds]
   )
 
   const handleRestoreBookmark = useCallback(
@@ -156,14 +162,14 @@ export function useBookmarkMutations({
       removeBookmarkFromCache(id)
       try {
         await AXIOS_INSTANCE.post(`/v1/bookmarks/${id}/restore`)
-        void invalidateAllQueries()
+        void invalidateBookmarks()
         toast.success("Item restored")
       } catch {
-        invalidateAllQueries()
+        void invalidateBookmarks()
         toast.error("Failed to restore bookmark")
       }
     },
-    [removeBookmarkFromCache, invalidateAllQueries]
+    [removeBookmarkFromCache, invalidateBookmarks]
   )
 
   const handlePermanentDeleteBookmark = useCallback(
@@ -182,34 +188,37 @@ export function useBookmarkMutations({
         await AXIOS_INSTANCE.delete(`/v1/bookmarks/${id}/permanent`)
         toast.success("Bookmark permanently deleted")
       } catch {
-        invalidateAllQueries()
+        void invalidateBookmarks()
         toast.error("Failed to permanently delete bookmark")
       }
     },
-    [confirm, removeBookmarkFromCache, invalidateAllQueries]
+    [confirm, removeBookmarkFromCache, invalidateBookmarks]
   )
 
   const handleDuplicateBookmark = useCallback(
-    async (bookmark: any) => {
+    async (bookmark: Bookmark) => {
       try {
-        await createBookmarkMutation.mutateAsync({
+        if (bookmark.isSummary) bookmark = await loadBookmark(bookmark.id)
+        await mutations.current.createBookmarkMutation.mutateAsync({
           data: {
             type: bookmark.type,
             noteDocument: bookmark.noteDocument || undefined,
+            notes: bookmark.notes || undefined,
+            drawing: bookmark.drawing || undefined,
             url: bookmark.url || undefined,
             title: bookmark.title ? `${bookmark.title} (Copy)` : undefined,
             description: bookmark.description || undefined,
             folderId: bookmark.folderId || undefined,
-            tags: bookmark.tags?.map((t: any) => t.name) || [],
+            tags: bookmark.tags?.map((t: { name: string }) => t.name) || [],
           },
         })
-        invalidateAllQueries()
+        await invalidateBookmarks()
         toast.success("Bookmark duplicated")
       } catch {
         toast.error("Failed to duplicate bookmark")
       }
     },
-    [createBookmarkMutation, invalidateAllQueries]
+    [invalidateBookmarks]
   )
 
   const handleEmptyTrash = useCallback(async () => {
@@ -223,20 +232,20 @@ export function useBookmarkMutations({
     if (!isConfirmed) return
     try {
       await AXIOS_INSTANCE.delete("/v1/bookmarks/trash/empty")
-      invalidateAllQueries()
+      await invalidateBookmarks()
       setSelectedBookmarkIds([])
       toast.success("Trash emptied")
     } catch {
       toast.error("Failed to empty trash")
     }
-  }, [confirm, invalidateAllQueries, setSelectedBookmarkIds])
+  }, [confirm, invalidateBookmarks, setSelectedBookmarkIds])
 
   const handleBulkRestore = useCallback(async () => {
     const ids = selectedBookmarkIds
     if (ids.length === 0) return
     try {
       await AXIOS_INSTANCE.post("/v1/bookmarks/bulk/restore", { ids })
-      invalidateAllQueries()
+      await invalidateBookmarks()
       setSelectedBookmarkIds([])
       toastWithUndo(`Restored ${countLabel(ids.length)}`, () =>
         AXIOS_INSTANCE.post("/v1/bookmarks/bulk/trash", { ids })
@@ -244,7 +253,7 @@ export function useBookmarkMutations({
     } catch {
       toast.error("Failed to restore some items")
     }
-  }, [selectedBookmarkIds, invalidateAllQueries, setSelectedBookmarkIds, toastWithUndo])
+  }, [selectedBookmarkIds, invalidateBookmarks, setSelectedBookmarkIds, toastWithUndo])
 
   const handleBulkTrash = useCallback(async () => {
     const ids = selectedBookmarkIds
@@ -253,15 +262,15 @@ export function useBookmarkMutations({
     setSelectedBookmarkIds([])
     try {
       await AXIOS_INSTANCE.post("/v1/bookmarks/bulk/trash", { ids })
-      invalidateAllQueries()
+      await invalidateBookmarks()
       toastWithUndo(`Moved ${countLabel(ids.length)} to Trash`, () =>
         AXIOS_INSTANCE.post("/v1/bookmarks/bulk/restore", { ids })
       )
     } catch {
-      invalidateAllQueries()
+      await invalidateBookmarks()
       toast.error("Failed to move items to Trash")
     }
-  }, [selectedBookmarkIds, invalidateAllQueries, setSelectedBookmarkIds, removeBookmarkFromCache, toastWithUndo])
+  }, [selectedBookmarkIds, invalidateBookmarks, setSelectedBookmarkIds, removeBookmarkFromCache, toastWithUndo])
 
   const handleBulkArchive = useCallback(
     async (isArchived = true) => {
@@ -271,17 +280,17 @@ export function useBookmarkMutations({
       setSelectedBookmarkIds([])
       try {
         await AXIOS_INSTANCE.post("/v1/bookmarks/bulk/archive", { ids, isArchived })
-        invalidateAllQueries()
+        await invalidateBookmarks()
         toastWithUndo(
           `${isArchived ? "Archived" : "Unarchived"} ${countLabel(ids.length)}`,
           () => AXIOS_INSTANCE.post("/v1/bookmarks/bulk/archive", { ids, isArchived: !isArchived })
         )
       } catch {
-        invalidateAllQueries()
+        await invalidateBookmarks()
         toast.error("Failed to update archive status")
       }
     },
-    [selectedBookmarkIds, updateBookmarkInCache, invalidateAllQueries, setSelectedBookmarkIds, toastWithUndo]
+    [selectedBookmarkIds, updateBookmarkInCache, invalidateBookmarks, setSelectedBookmarkIds, toastWithUndo]
   )
 
   /** Moves items into a folder (or the root) and offers to put each one back where it was. */
@@ -302,7 +311,7 @@ export function useBookmarkMutations({
       setSelectedBookmarkIds([])
       try {
         await AXIOS_INSTANCE.post("/v1/bookmarks/bulk/move", { ids, folderId })
-        invalidateAllQueries()
+        await Promise.all([invalidateBookmarks(), invalidateFolders()])
         toastWithUndo(
           `Moved ${countLabel(ids.length)} to ${folderName ? `"${folderName}"` : "Unfiled"}`,
           () =>
@@ -313,11 +322,11 @@ export function useBookmarkMutations({
             )
         )
       } catch {
-        invalidateAllQueries()
+        await Promise.all([invalidateBookmarks(), invalidateFolders()])
         toast.error("Failed to move items")
       }
     },
-    [getBookmark, updateBookmarkInCache, invalidateAllQueries, setSelectedBookmarkIds, toastWithUndo]
+    [getBookmark, updateBookmarkInCache, invalidateBookmarks, invalidateFolders, setSelectedBookmarkIds, toastWithUndo]
   )
 
   const handleBulkMove = useCallback(
@@ -332,13 +341,13 @@ export function useBookmarkMutations({
       if (ids.length === 0 || tagNames.length === 0) return
       try {
         await AXIOS_INSTANCE.post("/v1/bookmarks/bulk/tags", { ids, tags: tagNames })
-        await invalidateAllQueries()
+        await Promise.all([invalidateBookmarks(), invalidateTags()])
         toast.success(`Tagged ${countLabel(ids.length)} with #${tagNames.join(", #")}`)
       } catch {
         toast.error("Failed to add tags")
       }
     },
-    [selectedBookmarkIds, invalidateAllQueries]
+    [selectedBookmarkIds, invalidateBookmarks, invalidateTags]
   )
 
   const handleBulkPermanentDelete = useCallback(async () => {
@@ -357,13 +366,13 @@ export function useBookmarkMutations({
       await AXIOS_INSTANCE.post("/v1/bookmarks/bulk/permanent-delete", {
         ids: idsToDelete,
       })
-      invalidateAllQueries()
+      await invalidateBookmarks()
       toast.success("Selected bookmarks permanently deleted")
     } catch {
-      invalidateAllQueries()
+      await invalidateBookmarks()
       toast.error("Failed to delete some bookmarks")
     }
-  }, [confirm, selectedBookmarkIds, removeBookmarkFromCache, invalidateAllQueries, setSelectedBookmarkIds])
+  }, [confirm, selectedBookmarkIds, removeBookmarkFromCache, invalidateBookmarks, setSelectedBookmarkIds])
 
   return {
     toggleFavorite,

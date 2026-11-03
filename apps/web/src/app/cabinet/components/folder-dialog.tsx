@@ -16,14 +16,7 @@ import {
   FieldLabel,
   FieldError,
 } from "@/components/ui/field"
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-} from "@/components/ui/select"
+import { FolderPicker } from "./folder-picker"
 import { Spinner } from "@/components/ui/spinner"
 
 interface FolderDialogProps {
@@ -124,7 +117,7 @@ export function FolderDialog({
               }}
             />
 
-            <folderForm.Field
+            {folders.length > 0 && <folderForm.Field
               name="parentId"
               children={(field: any) => {
                 const isInvalid =
@@ -134,34 +127,15 @@ export function FolderDialog({
                     <FieldLabel htmlFor={field.name}>
                       Parent Folder (optional)
                     </FieldLabel>
-                    <Select
-                      value={field.state.value || "__root__"}
-                      onValueChange={(val) =>
-                        field.handleChange(val === "__root__" ? "" : val)
-                      }
-                    >
-                      <SelectTrigger
-                        id={field.name}
-                      >
-                        <SelectValue placeholder="Root (No parent folder)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                        <SelectItem value="__root__">
-                          Root (No parent folder)
-                        </SelectItem>
-                        {folders
-                          .filter((f) =>
-                            folderToEdit ? f.id !== folderToEdit.id : true
-                          )
-                          .map((f) => (
-                            <SelectItem key={f.id} value={f.id}>
-                              {f.name}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
+                    <FolderPicker
+                      id={field.name}
+                      folders={folders}
+                      value={field.state.value || ""}
+                      onChange={field.handleChange}
+                      invalid={isInvalid}
+                      excludeId={folderToEdit?.id}
+                      unfiledLabel="Root (No parent folder)"
+                    />
                     {isInvalid && (
                       <FieldError
                         errors={field.state.meta.errors.map((err: any) =>
@@ -172,7 +146,7 @@ export function FolderDialog({
                   </Field>
                 )
               }}
-            />
+            />}
           </FieldGroup>
 
           <div className="flex gap-2.5 pt-2">

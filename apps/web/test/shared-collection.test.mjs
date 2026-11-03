@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { sharedCollectionItems, sharedDrawingItems, sharedNoteItems, safeHttpUrl } from "../src/lib/shared-collection.ts"
+import { sharedCollectionItems, safeHttpUrl } from "../src/lib/shared-collection.ts"
 import { loginReturnPath } from "../src/lib/login-redirect.ts"
 
 test("public collection items filter unsafe URLs and index title, description and website for local search", () => {
@@ -8,32 +8,15 @@ test("public collection items filter unsafe URLs and index title, description an
     { id: "a", title: "Typography", description: "Design references", url: "https://www.example.com/type", imageUrl: "https://example.com/preview.jpg" },
     { id: "b", title: "A useful article", description: null, url: "https://other.test/read", imageUrl: "javascript:alert(1)" },
     { id: "c", title: "Unsafe", description: null, url: "javascript:alert(1)", imageUrl: null },
-  ], "https://api.test")
+  ])
   assert.equal(items.length, 2)
   assert.equal(items[0].hostname, "example.com")
   for (const query of ["typography", "references", "example.com", "/type"]) {
     assert.equal(items.filter((item) => item.searchText.includes(query)).length, 1)
   }
-  assert.equal(items[0].preview, "https://api.test/v1/bookmarks/proxy-image?v=2&url=https%3A%2F%2Fexample.com%2Fpreview.jpg")
+  assert.equal(items[0].preview, "https://example.com/preview.jpg")
   assert.equal(items[1].preview, null)
   for (const url of ["/relative", "data:text/html,test", "file:///etc/passwd", "not a url"]) assert.equal(safeHttpUrl(url), null)
-})
-
-test("public collections index shared notes by title and text", () => {
-  const notes = sharedNoteItems([{ id: "n", title: "", text: "Meeting agenda\nShip tags" }])
-  assert.equal(notes[0].title, "Untitled note")
-  assert.ok(notes[0].searchText.includes("ship tags"))
-  assert.deepEqual(sharedNoteItems(undefined), [])
-})
-
-test("public collections show drawings by their embedded preview only", () => {
-  const drawings = sharedDrawingItems([
-    { id: "a", title: "Flow", preview: "data:image/webp;base64,AAAA" },
-    { id: "b", title: "", preview: "https://tracker.example/pixel.png" },
-  ])
-  assert.equal(drawings[0].preview, "data:image/webp;base64,AAAA")
-  assert.equal(drawings[1].preview, null)
-  assert.equal(drawings[1].title, "Untitled drawing")
 })
 
 test("login can return to a shared collection but cannot become an open redirect", () => {
@@ -42,6 +25,8 @@ test("login can return to a shared collection but cannot become an open redirect
   for (const next of ["https://evil.test", "//evil.test", "/\\evil.test", "/share/bad", `${path}?next=https://evil.test`, "/login"]) {
     assert.equal(loginReturnPath(`?next=${encodeURIComponent(next)}`), "/cabinet")
   }
+  assert.equal(loginReturnPath("?next=%2Fcabinet%2Fnotes%3Fid%3D1"), "/cabinet/notes?id=1")
+  assert.equal(loginReturnPath("?next=%2Fcabinet.evil.test"), "/cabinet")
   const invitation = `/invite/${"b".repeat(64)}`
   assert.equal(loginReturnPath(`?next=${encodeURIComponent(invitation)}`), invitation)
   for (const next of ["/invite/bad", `${invitation}?next=https://evil.test`, `//evil.test${invitation}`]) {

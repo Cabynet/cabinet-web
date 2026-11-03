@@ -10,11 +10,11 @@ export type OauthAuthorizeHandlerParams = {
 /**
  * @nullable
  */
-client_type?: string | null;
+clientType?: string | null;
 /**
  * @nullable
  */
-redirect_uri?: string | null;
+redirectUri?: string | null;
 /**
  * @nullable
  */

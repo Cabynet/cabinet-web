@@ -1,5 +1,6 @@
 "use client"
 
+import { apiErrorMessage } from "@/lib/api-error"
 import React, { useState, useRef } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import {
@@ -123,15 +124,14 @@ export function UploadFileDialog({
       }
       onOpenChange(false)
       resetForm()
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || err.message || "Failed to upload file", { id: toastId })
+    } catch (err) {
+      toast.error(apiErrorMessage(err, "Failed to upload file"), { id: toastId })
     } finally {
       setIsUploading(false)
     }
   }
 
   const isPdf = file?.type === "application/pdf"
-  const isImage = file?.type.startsWith("image/")
 
   return (
     <Dialog

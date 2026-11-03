@@ -12,9 +12,9 @@ export interface NoteResponse {
   document?: NoteResponseDocument;
   id: string;
   /** @nullable */
-  plain_text?: string | null;
+  plainText?: string | null;
   revision: number;
   /** @nullable */
-  save_id?: string | null;
-  updated_at: string;
+  saveId?: string | null;
+  updatedAt: string;
 }

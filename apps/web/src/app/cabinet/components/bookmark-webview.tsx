@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useRef, useState, type ReactNode } from "react"
+import type { PDFDocumentProxy } from "pdfjs-dist"
+import { usePdfDocument } from "@/hooks/use-pdf-document"
 import { useQuery } from "@tanstack/react-query"
 import { AXIOS_INSTANCE } from "@/lib/api-client"
 import {
@@ -21,14 +23,13 @@ import {
   ArrowUUpLeft,
   ArrowUUpRight,
 } from "@phosphor-icons/react"
-import { getProxiedImageUrl } from "@/lib/bookmark-image"
+import { useProxiedImageUrl, useProxiedPageUrl } from "@/lib/signed-proxy"
 import {
   DIRECT_FRAME_SANDBOX,
   PROXIED_FRAME_SANDBOX,
   PREVIEW_ERROR_MESSAGE,
   PREVIEW_READY_MESSAGE,
   PREVIEW_NAVIGATE_MESSAGE,
-  getProxiedPageUrl,
   getYouTubeEmbedUrl,
 } from "@/lib/bookmark-page"
 import { isImageBookmark, isPdfBookmark } from "@/lib/bookmark-kind"
@@ -160,67 +161,42 @@ function ImageViewer({ src, title }: { src: string; title?: string }) {
   )
 }
 
-function PdfThumbnail({ url, pageNumber }: { url: string; pageNumber: number }) {
+function PdfPageCanvas({ pdf, pageNumber, zoom = 1, rotation = 0, thumbnail = false }: { pdf: PDFDocumentProxy; pageNumber: number; zoom?: number; rotation?: number; thumbnail?: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      try {
-        const pdfjs = await import("pdfjs-dist")
-        pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString()
-        const pdf = await pdfjs.getDocument({ url, withCredentials: true }).promise
-        const page = await pdf.getPage(pageNumber)
-        if (cancelled || !canvasRef.current) return
-        const viewport = page.getViewport({ scale: 0.28 * Math.min(window.devicePixelRatio || 1, 2) })
-        const canvas = canvasRef.current
-        const context = canvas.getContext("2d")
-        if (!context) return
-        canvas.width = viewport.width
-        canvas.height = viewport.height
-        await page.render({ canvas, canvasContext: context, viewport }).promise
-      } catch {
-        // An empty page tile is preferable to failing the full document viewer.
-      }
-    })()
-    return () => { cancelled = true }
-  }, [url, pageNumber])
-
-  return <canvas ref={canvasRef} aria-hidden="true" className="block h-full w-full object-contain" />
-}
-
-function PdfSheet({ url, pageNumber, zoom, rotation }: { url: string; pageNumber: number; zoom: number; rotation: number }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [error, setError] = useState(false)
   useEffect(() => {
     let cancelled = false
     let cancelRender: (() => void) | undefined
+    setError(false)
     void (async () => {
       try {
-        const pdfjs = await import("pdfjs-dist")
-        pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString()
-        const pdf = await pdfjs.getDocument({ url, withCredentials: true }).promise
         const page = await pdf.getPage(pageNumber)
         if (cancelled || !canvasRef.current) return
-        const viewport = page.getViewport({ scale: zoom * 1.5 * Math.min(window.devicePixelRatio || 1, 2), rotation })
+        const scale = (thumbnail ? 0.28 : zoom * 1.5) * Math.min(window.devicePixelRatio || 1, 2)
+        const viewport = page.getViewport({ scale, rotation })
         const canvas = canvasRef.current
         const context = canvas.getContext("2d")
-        if (!context) return
+        if (!context) throw new Error("Canvas is unavailable")
         canvas.width = viewport.width
         canvas.height = viewport.height
         const task = page.render({ canvas, canvasContext: context, viewport })
         cancelRender = () => task.cancel()
         await task.promise
-      } catch { /* The page placeholder remains when an individual page fails. */ }
+      } catch { if (!cancelled) setError(true) }
     })()
     return () => { cancelled = true; cancelRender?.() }
-  }, [url, pageNumber, zoom, rotation])
-  return <canvas ref={canvasRef} aria-label={`PDF page ${pageNumber}`} className="block h-auto w-full bg-white shadow-xl" />
+  }, [pdf, pageNumber, zoom, rotation, thumbnail])
+  return <>
+    <canvas ref={canvasRef} aria-label={thumbnail ? undefined : `PDF page ${pageNumber}`} aria-hidden={thumbnail || undefined} className={cn(thumbnail ? "block h-full w-full object-contain" : "block h-auto w-full bg-white shadow-xl", error && "hidden")} />
+    {error && <span className="flex min-h-16 items-center justify-center gap-2 p-2 text-xs text-muted-foreground" role="status"><FilePdf />Page {pageNumber} unavailable</span>}
+  </>
 }
 
 function PdfViewer({ url, title }: { url: string; title?: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [page, setPage] = useState(1)
-  const [pageCount, setPageCount] = useState(0)
+  const { document: pdf, error: documentError } = usePdfDocument(url)
+  const pageCount = pdf?.numPages ?? 0
   const [zoom, setZoom] = useState(1)
   const [rotation, setRotation] = useState(0)
   const [showPages, setShowPages] = useState(true)
@@ -230,9 +206,12 @@ function PdfViewer({ url, title }: { url: string; title?: string }) {
   const [redoStrokes, setRedoStrokes] = useState<string[]>([])
   const [activeStroke, setActiveStroke] = useState("")
   const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState(false)
+  const [renderError, setLoadError] = useState(false)
+  const loadError = documentError || renderError
 
   useEffect(() => {
+    if (!pdf) return
+    if (continuous) { setLoading(false); return }
     let cancelled = false
     let cancelRender: (() => void) | undefined
 
@@ -240,11 +219,6 @@ function PdfViewer({ url, title }: { url: string; title?: string }) {
       setLoading(true)
       setLoadError(false)
       try {
-        const pdfjs = await import("pdfjs-dist")
-        pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString()
-        const pdf = await pdfjs.getDocument({ url, withCredentials: true }).promise
-        if (cancelled) return
-        setPageCount(pdf.numPages)
         const pdfPage = await pdf.getPage(page)
         if (cancelled || !canvasRef.current) return
 
@@ -270,71 +244,71 @@ function PdfViewer({ url, title }: { url: string; title?: string }) {
       cancelled = true
       cancelRender?.()
     }
-  }, [url, page, zoom, rotation])
+  }, [pdf, page, zoom, rotation, continuous])
 
   useEffect(() => {
     if (continuous) document.getElementById(`pdf-page-${page}`)?.scrollIntoView({ behavior: "smooth", block: "start" })
   }, [continuous, page])
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-neutral-900 text-neutral-100">
-      <div className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-neutral-700 bg-neutral-800 px-3">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-muted/40 text-foreground dark:bg-neutral-950 dark:text-neutral-100">
+      <div className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-3 text-foreground dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100">
         <div className="flex min-w-0 items-center gap-2 overflow-x-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <ButtonGroup aria-label="Page navigation" className="shrink-0">
-            <Button variant="ghost" size="icon-sm" aria-label="Toggle page thumbnails" title="Thumbnails" aria-pressed={showPages} onClick={() => setShowPages((shown) => !shown)} className="text-neutral-300 hover:bg-neutral-700 hover:text-white"><SidebarSimple /></Button>
-            <ButtonGroupSeparator className="bg-neutral-600" />
-            <Button variant="ghost" size="icon-sm" aria-label="Previous page" disabled={page <= 1 || loading} onClick={() => setPage((n) => n - 1)} className="text-neutral-300 hover:bg-neutral-700 hover:text-white"><CaretLeft /></Button>
-            <span aria-live="polite" className="flex h-8 min-w-[4.5rem] items-center justify-center px-1 text-xs tabular-nums text-neutral-100">{pageCount ? `${page} / ${pageCount}` : "— / —"}</span>
-            <Button variant="ghost" size="icon-sm" aria-label="Next page" disabled={page >= pageCount || loading} onClick={() => setPage((n) => n + 1)} className="text-neutral-300 hover:bg-neutral-700 hover:text-white"><CaretRight /></Button>
+            <Button variant="ghost" size="icon-sm" aria-label="Toggle page thumbnails" title="Thumbnails" aria-pressed={showPages} onClick={() => setShowPages((shown) => !shown)} className="text-muted-foreground hover:bg-muted hover:text-foreground dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white"><SidebarSimple /></Button>
+            <ButtonGroupSeparator className="bg-border dark:bg-neutral-700" />
+            <Button variant="ghost" size="icon-sm" aria-label="Previous page" disabled={page <= 1 || loading} onClick={() => setPage((n) => n - 1)} className="text-muted-foreground hover:bg-muted hover:text-foreground dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white"><CaretLeft /></Button>
+            <span aria-live="polite" className="flex h-8 min-w-[4.5rem] items-center justify-center px-1 text-xs tabular-nums text-foreground dark:text-neutral-100">{pageCount ? `${page} / ${pageCount}` : "— / —"}</span>
+            <Button variant="ghost" size="icon-sm" aria-label="Next page" disabled={page >= pageCount || loading} onClick={() => setPage((n) => n + 1)} className="text-muted-foreground hover:bg-muted hover:text-foreground dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white"><CaretRight /></Button>
           </ButtonGroup>
 
           <ButtonGroup aria-label="Zoom controls" className="shrink-0">
-            <Button variant="ghost" size="icon-sm" aria-label="Zoom out" disabled={zoom <= 0.5 || loading} onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))} className="text-neutral-300 hover:bg-neutral-700 hover:text-white"><MagnifyingGlassMinus /></Button>
-            <span className="flex h-8 min-w-11 items-center justify-center px-1 text-xs tabular-nums text-neutral-100">{Math.round(zoom * 100)}%</span>
-            <Button variant="ghost" size="icon-sm" aria-label="Zoom in" disabled={zoom >= 2 || loading} onClick={() => setZoom((z) => Math.min(2, z + 0.25))} className="text-neutral-300 hover:bg-neutral-700 hover:text-white"><MagnifyingGlassPlus /></Button>
-            <ButtonGroupSeparator className="bg-neutral-600" />
-            <Button variant="ghost" size="icon-sm" aria-label="Fit page" title="Fit page" disabled={loading} onClick={() => setZoom(1)} className="text-neutral-300 hover:bg-neutral-700 hover:text-white"><ArrowsIn /></Button>
+            <Button variant="ghost" size="icon-sm" aria-label="Zoom out" disabled={zoom <= 0.5 || loading} onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))} className="text-muted-foreground hover:bg-muted hover:text-foreground dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white"><MagnifyingGlassMinus /></Button>
+            <span className="flex h-8 min-w-11 items-center justify-center px-1 text-xs tabular-nums text-foreground dark:text-neutral-100">{Math.round(zoom * 100)}%</span>
+            <Button variant="ghost" size="icon-sm" aria-label="Zoom in" disabled={zoom >= 2 || loading} onClick={() => setZoom((z) => Math.min(2, z + 0.25))} className="text-muted-foreground hover:bg-muted hover:text-foreground dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white"><MagnifyingGlassPlus /></Button>
+            <ButtonGroupSeparator className="bg-border dark:bg-neutral-700" />
+            <Button variant="ghost" size="icon-sm" aria-label="Fit page" title="Fit page" disabled={loading} onClick={() => setZoom(1)} className="text-muted-foreground hover:bg-muted hover:text-foreground dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white"><ArrowsIn /></Button>
           </ButtonGroup>
 
-          <ToggleGroup type="single" value={continuous ? "continuous" : "single"} onValueChange={(value) => { if (value) setContinuous(value === "continuous") }} aria-label="Page layout" variant="outline" size="sm" spacing={0} className="h-8 shrink-0 rounded-md border border-neutral-600 bg-neutral-900 p-0.5 text-neutral-300">
-            <ToggleGroupItem value="single" className="h-7 min-w-0 rounded px-2 text-xs text-neutral-300 hover:bg-neutral-700 hover:text-white data-[state=on]:bg-neutral-700 data-[state=on]:text-white">Single page</ToggleGroupItem>
-            <ToggleGroupItem value="continuous" className="h-7 min-w-0 rounded px-2 text-xs text-neutral-300 hover:bg-neutral-700 hover:text-white data-[state=on]:bg-neutral-700 data-[state=on]:text-white">Continuous</ToggleGroupItem>
+          <ToggleGroup type="single" value={continuous ? "continuous" : "single"} onValueChange={(value) => { if (value) setContinuous(value === "continuous") }} aria-label="Page layout" variant="outline" size="sm" spacing={0} className="h-8 shrink-0 rounded-md border border-border bg-muted/60 p-0.5 text-muted-foreground dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
+            <ToggleGroupItem value="single" className="h-7 min-w-0 rounded px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground data-[state=on]:bg-card data-[state=on]:text-foreground data-[state=on]:shadow-2xs dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white dark:data-[state=on]:bg-neutral-800 dark:data-[state=on]:text-white">Single page</ToggleGroupItem>
+            <ToggleGroupItem value="continuous" className="h-7 min-w-0 rounded px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground data-[state=on]:bg-card data-[state=on]:text-foreground data-[state=on]:shadow-2xs dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white dark:data-[state=on]:bg-neutral-800 dark:data-[state=on]:text-white">Continuous</ToggleGroupItem>
           </ToggleGroup>
 
           <ButtonGroup aria-label="Annotations" className="shrink-0">
-            <Button variant={drawing ? "secondary" : "ghost"} size="icon-sm" aria-label="Draw on page" title="Draw on page" disabled={loading} onClick={() => setDrawing((value) => !value)} className="text-neutral-300 hover:bg-neutral-700 hover:text-white aria-pressed:bg-neutral-700" aria-pressed={drawing}><PencilSimple /></Button>
-            <Button variant="ghost" size="icon-sm" aria-label="Undo drawing" title="Undo" disabled={!strokes.length} onClick={() => { const previous = strokes.at(-1); if (previous) { setStrokes(strokes.slice(0, -1)); setRedoStrokes([...redoStrokes, previous]) } }} className="text-neutral-300 hover:bg-neutral-700 hover:text-white"><ArrowUUpLeft /></Button>
-            <Button variant="ghost" size="icon-sm" aria-label="Redo drawing" title="Redo" disabled={!redoStrokes.length} onClick={() => { const next = redoStrokes.at(-1); if (next) { setRedoStrokes(redoStrokes.slice(0, -1)); setStrokes([...strokes, next]) } }} className="text-neutral-300 hover:bg-neutral-700 hover:text-white"><ArrowUUpRight /></Button>
-            <Button variant="ghost" size="icon-sm" aria-label="Rotate clockwise" title="Rotate clockwise" disabled={loading} onClick={() => setRotation((r) => (r + 90) % 360)} className="text-neutral-300 hover:bg-neutral-700 hover:text-white"><ArrowClockwise /></Button>
+            <Button variant={drawing ? "secondary" : "ghost"} size="icon-sm" aria-label="Draw on page" title="Draw on page" disabled={loading} onClick={() => setDrawing((value) => !value)} className="text-muted-foreground hover:bg-muted hover:text-foreground aria-pressed:bg-muted aria-pressed:text-foreground dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white dark:aria-pressed:bg-neutral-800 dark:aria-pressed:text-white" aria-pressed={drawing}><PencilSimple /></Button>
+            <Button variant="ghost" size="icon-sm" aria-label="Undo drawing" title="Undo" disabled={!strokes.length} onClick={() => { const previous = strokes.at(-1); if (previous) { setStrokes(strokes.slice(0, -1)); setRedoStrokes([...redoStrokes, previous]) } }} className="text-muted-foreground hover:bg-muted hover:text-foreground dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white"><ArrowUUpLeft /></Button>
+            <Button variant="ghost" size="icon-sm" aria-label="Redo drawing" title="Redo" disabled={!redoStrokes.length} onClick={() => { const next = redoStrokes.at(-1); if (next) { setRedoStrokes(redoStrokes.slice(0, -1)); setStrokes([...strokes, next]) } }} className="text-muted-foreground hover:bg-muted hover:text-foreground dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white"><ArrowUUpRight /></Button>
+            <Button variant="ghost" size="icon-sm" aria-label="Rotate clockwise" title="Rotate clockwise" disabled={loading} onClick={() => setRotation((r) => (r + 90) % 360)} className="text-muted-foreground hover:bg-muted hover:text-foreground dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white"><ArrowClockwise /></Button>
           </ButtonGroup>
         </div>
-        <div className="flex shrink-0 items-center gap-1 border-l border-neutral-700 pl-3">
-          <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-neutral-300 hover:bg-neutral-700 hover:text-white" asChild><a href={url} download={title || "document.pdf"}><DownloadSimple data-icon="inline-start" />Download</a></Button>
-          <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-neutral-300 hover:bg-neutral-700 hover:text-white" onClick={() => window.open(url, "_blank", "noopener,noreferrer")?.print()}><Printer data-icon="inline-start" />Print</Button>
+        <div className="flex shrink-0 items-center gap-1 border-l border-border pl-3 dark:border-neutral-700">
+          <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white" asChild><a href={url} download={title || "document.pdf"}><DownloadSimple data-icon="inline-start" />Download</a></Button>
+          <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white" onClick={() => window.open(url, "_blank", "noopener,noreferrer")}><Printer data-icon="inline-start" />Open</Button>
         </div>
       </div>
       <div className="flex min-h-0 flex-1">
-        {showPages && !loadError && <aside aria-label="PDF pages" className="w-24 shrink-0 overflow-y-auto border-r border-neutral-700 bg-neutral-800 p-2 sm:w-36">
+        {showPages && !loadError && <aside aria-label="PDF pages" className="w-24 shrink-0 overflow-y-auto border-r border-border bg-card/60 p-2 sm:w-36 dark:border-neutral-800 dark:bg-neutral-900">
           {Array.from({ length: pageCount }, (_, index) => index + 1).map((pageNumber) => (
-            <button key={pageNumber} type="button" onClick={() => setPage(pageNumber)} aria-label={`Go to page ${pageNumber}`} aria-current={page === pageNumber ? "page" : undefined} className={cn("mb-2 flex w-full flex-col items-center gap-1 rounded border p-2 text-xs", page === pageNumber ? "border-primary bg-primary/10 text-foreground" : "border-transparent text-muted-foreground hover:bg-neutral-700")}>
-              <span className="flex aspect-[3/4] w-full items-center justify-center overflow-hidden bg-white"><PdfThumbnail url={url} pageNumber={pageNumber} /></span>{pageNumber}
+            <button key={pageNumber} type="button" onClick={() => setPage(pageNumber)} aria-label={`Go to page ${pageNumber}`} aria-current={page === pageNumber ? "page" : undefined} className={cn("mb-2 flex w-full flex-col items-center gap-1 rounded-md border p-1.5 text-xs transition-colors", page === pageNumber ? "border-primary bg-primary/10 text-foreground font-medium shadow-2xs" : "border-border/60 bg-card/80 text-muted-foreground hover:border-border hover:bg-muted/70 hover:text-foreground dark:border-neutral-800 dark:bg-neutral-800/60 dark:hover:bg-neutral-800 dark:hover:text-neutral-100")}>
+              <span className="flex aspect-[3/4] w-full items-center justify-center overflow-hidden rounded-xs border border-border/80 bg-white shadow-2xs dark:border-neutral-700">{pdf && <PdfPageCanvas pdf={pdf} pageNumber={pageNumber} thumbnail />}</span>{pageNumber}
             </button>
           ))}
         </aside>}
-        <div className="relative flex min-h-0 min-w-0 flex-1 justify-center overflow-auto p-6">
-          {loading && <div className="absolute inset-0 z-10 flex items-center justify-center bg-neutral-900/60"><Spinner className="size-6" /></div>}
+        <div className="relative flex min-h-0 min-w-0 flex-1 justify-center overflow-auto bg-muted/30 p-6 dark:bg-neutral-950/90">
+          {loading && !loadError && <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-2xs dark:bg-neutral-950/60"><Spinner className="size-6" /></div>}
           {loadError ? (
             <div className="flex flex-col items-center justify-center gap-3 text-center">
-              <FilePdf className="size-10 text-neutral-400" />
-              <p className="text-sm text-neutral-300">Couldn’t render this PDF preview.</p>
+              <FilePdf className="size-10 text-muted-foreground/70 dark:text-neutral-400" />
+              <p className="text-sm text-foreground dark:text-neutral-300">Couldn’t render this PDF preview.</p>
               <Button variant="outline" asChild><a href={url} target="_blank" rel="noopener noreferrer"><ArrowSquareOut data-icon="inline-start" /> Open original</a></Button>
             </div>
           ) : continuous ? (
-            <div className="flex w-full flex-col items-center gap-2">
-              {Array.from({ length: pageCount }, (_, index) => index + 1).map((pageNumber) => <div id={`pdf-page-${pageNumber}`} key={pageNumber} className="w-full max-w-5xl"><PdfSheet url={url} pageNumber={pageNumber} zoom={zoom} rotation={rotation} /></div>)}
+            <div className="flex w-full flex-col items-center gap-3">
+              {Array.from({ length: pageCount }, (_, index) => index + 1).map((pageNumber) => <div id={`pdf-page-${pageNumber}`} key={pageNumber} className="w-full max-w-5xl rounded-xs border border-border/70 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06),0_16px_36px_-12px_rgba(0,0,0,0.18)] dark:border-neutral-800 dark:shadow-xl">{pdf && <PdfPageCanvas pdf={pdf} pageNumber={pageNumber} zoom={zoom} rotation={rotation} />}</div>)}
             </div>
-          ) : <div className="relative h-fit shrink-0" style={{ width: `${zoom * 100}%` }}>
-            <canvas ref={canvasRef} aria-label={`${title || "PDF"}, page ${page}`} className="block h-auto w-full bg-white shadow-xl" />
+          ) : <div className="relative h-fit shrink-0 rounded-xs border border-border/70 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06),0_16px_36px_-12px_rgba(0,0,0,0.18)] dark:border-neutral-800 dark:shadow-xl" style={{ width: `${zoom * 100}%` }}>
+            <canvas ref={canvasRef} aria-label={`${title || "PDF"}, page ${page}`} className="block h-auto w-full bg-white" />
             <svg viewBox="0 0 100 100" preserveAspectRatio="none" className={cn("absolute inset-0 h-full w-full", drawing ? "touch-none cursor-crosshair" : "pointer-events-none")} onPointerDown={(event) => { if (!drawing) return; event.currentTarget.setPointerCapture(event.pointerId); const rect = event.currentTarget.getBoundingClientRect(); setActiveStroke(`M ${(event.clientX - rect.left) / rect.width * 100} ${(event.clientY - rect.top) / rect.height * 100}`) }} onPointerMove={(event) => { if (!drawing || !activeStroke) return; const rect = event.currentTarget.getBoundingClientRect(); setActiveStroke((path) => `${path} L ${(event.clientX - rect.left) / rect.width * 100} ${(event.clientY - rect.top) / rect.height * 100}`) }} onPointerUp={() => { if (activeStroke) { setStrokes([...strokes, activeStroke]); setRedoStrokes([]); setActiveStroke("") } }}>
               {[...strokes, activeStroke].filter(Boolean).map((path, index) => <path key={`${index}-${path.slice(0, 12)}`} d={path} fill="none" stroke="#e11d48" strokeWidth="0.7" strokeLinecap="round" strokeLinejoin="round" />)}
             </svg>
@@ -382,7 +356,7 @@ export function BookmarkWebview({
     queryKey: ["/v1/bookmarks/embeddable", website?.href],
     queryFn: async () => {
       const response = await AXIOS_INSTANCE.get("/v1/bookmarks/embeddable", { params: { url: website?.href } })
-      return Boolean(response.data?.data?.embeddable ?? response.data?.embeddable ?? true)
+      return Boolean(response.data?.embeddable ?? true)
     },
     enabled: !!website && !youtubeEmbedUrl && !isMediaAsset,
     staleTime: 24 * 60 * 60 * 1000,
@@ -393,7 +367,8 @@ export function BookmarkWebview({
   const frameRef = useRef<HTMLIFrameElement>(null)
   const [frameUrl, setFrameUrl] = useState<string | null>(null)
   const [showSummary, setShowSummary] = useState(false)
-  const thumbnail = getProxiedImageUrl(bookmark.imageUrl)
+  const thumbnail = useProxiedImageUrl(bookmark.imageUrl)
+  const proxiedPageUrl = useProxiedPageUrl(blocked && website ? frameUrl ?? website.href : null)
   const [thumbnailFailed, setThumbnailFailed] = useState(false)
   const unavailable = status === "error"
   const showReference = safariGoogleDocs || unavailable || showSummary
@@ -517,7 +492,7 @@ export function BookmarkWebview({
             {isImage ? (
               <ImageViewer src={mediaSourceUrl} title={bookmark.title} />
             ) : isPdf ? (
-              <PdfViewer url={mediaSourceUrl} title={bookmark.title} />
+              <PdfViewer key={mediaSourceUrl} url={mediaSourceUrl} title={bookmark.title} />
             ) : (
               <>
                 {website && !youtubeEmbedUrl && embedCheck.isPending && (
@@ -576,7 +551,7 @@ export function BookmarkWebview({
                     <iframe
                       key={reload}
                       ref={frameRef}
-                      src={youtubeEmbedUrl ?? (blocked ? getProxiedPageUrl(frameUrl ?? website.href) : website.href)}
+                      src={youtubeEmbedUrl ?? (blocked ? proxiedPageUrl || undefined : website.href)}
                       title={bookmark.title || website.hostname}
                       // A proxied page can render and then break while its scripts start, so keep it hidden until the proxy confirms it.
                       className={cn("min-h-0 w-full flex-1 border-0 bg-white", blocked && !contentConfirmed && "invisible")}

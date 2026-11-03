@@ -1,5 +1,6 @@
 import React from "react"
 import { createRoot } from "react-dom/client"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime"
 import { BookmarkViewControls } from "../../src/app/cabinet/components/toolbar"
 import { useCabinetFilters } from "../../src/app/cabinet/hooks/use-cabinet-filters"
@@ -7,6 +8,7 @@ import { BookmarkMoodboardView } from "../../src/app/cabinet/components/bookmark
 import { FolderTree } from "../../src/app/cabinet/components/folder-tree"
 import { Sortable } from "../../src/components/ui/sortable"
 import { TooltipProvider } from "../../src/components/ui/tooltip"
+import { SidebarProvider } from "../../src/components/ui/sidebar"
 import { bookmarkCollisionDetection, masonrySortingStrategy } from "../../src/lib/bookmark-sortable"
 
 const thumbnail = (height: number) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="320" height="${height}"><rect width="320" height="${height}" fill="#ddd"/></svg>`)}`
@@ -17,6 +19,7 @@ const initial = Array.from({ length: 24 }, (_, i) => ({
   tags: [], isPinned: false,
 }))
 const noop = () => {}
+const queryClient = new QueryClient()
 const router = { push: noop, replace: noop, back: noop, forward: noop, refresh: noop, hmrRefresh: noop, prefetch: async () => {} } satisfies AppRouterInstance
 
 function Fixture() {
@@ -28,8 +31,8 @@ function Fixture() {
   const [drop, setDrop] = React.useState("")
   const [inspections, setInspections] = React.useState(0)
   return (
-    <AppRouterContext.Provider value={router}>
-    <TooltipProvider>
+    <QueryClientProvider client={queryClient}><AppRouterContext.Provider value={router}>
+    <SidebarProvider style={{ display: "block" }}><TooltipProvider>
       <BookmarkViewControls sort={sort} onSortChange={handleSortChange} viewMode="moodboard" onViewModeChange={noop} />
       <output id="sort">{sort}</output>
       <button onClick={() => { setBookmarks(initial); setDrop(""); setSelected([]) }}>Reset</button>
@@ -38,6 +41,8 @@ function Fixture() {
       <button onClick={() => setBookmarks((items) => items.slice(1))}>Remove first</button>
       <button onClick={() => setBookmarks((items) => items.map((item, i) => i === 0 ? { ...item, imageUrl: "/late.svg" } : item))}>Resize thumbnail</button>
       <button onClick={() => setBookmarks((items) => [...items, { ...initial[0]!, id: "extra", title: "Extra" }])}>Append</button>
+      <button onClick={() => setBookmarks(Array.from({ length: 300 }, (_, i) => ({ ...initial[0]!, id: `b${i}`, title: `Bookmark ${i}`, imageUrl: `/thumb/${i}.svg` })))}>Load large library</button>
+      <button onClick={() => setBookmarks((items) => items.map((item, i) => i === 0 ? { ...item, imageUrl: "", faviconUrl: `${window.location.origin}/site-icon.svg` } : item))}>Remove preview</button>
       <output id="order">{bookmarks.map((b) => b.id).join(",")}</output>
       <output id="drop">{drop}</output>
       <output id="inspections">{inspections}</output>
@@ -69,8 +74,8 @@ function Fixture() {
           </main>
         </div>
       </Sortable>
-    </TooltipProvider>
-    </AppRouterContext.Provider>
+    </TooltipProvider></SidebarProvider>
+    </AppRouterContext.Provider></QueryClientProvider>
   )
 }
 createRoot(document.getElementById("root")!).render(<React.StrictMode><Fixture /></React.StrictMode>)

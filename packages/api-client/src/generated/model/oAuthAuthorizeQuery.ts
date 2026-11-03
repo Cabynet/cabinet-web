@@ -8,9 +8,9 @@
 
 export interface OAuthAuthorizeQuery {
   /** @nullable */
-  client_type?: string | null;
+  clientType?: string | null;
   /** @nullable */
   format?: string | null;
   /** @nullable */
-  redirect_uri?: string | null;
+  redirectUri?: string | null;
 }

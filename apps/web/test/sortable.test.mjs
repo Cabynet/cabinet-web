@@ -40,6 +40,7 @@ const { BookmarkMoodboardView, MoodboardCard } = await import("../src/app/cabine
 const { BookmarkListView } = await import("../src/app/cabinet/components/bookmark-list-view.tsx")
 const { BookmarkList } = await import("../src/app/cabinet/components/bookmark-list.tsx")
 const { BookmarkInspector } = await import("../src/app/cabinet/components/bookmark-inspector.tsx")
+const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query")
 const { TooltipProvider } = await import("../src/components/ui/tooltip.tsx")
 const { defaultDisplayPreferences: defaultPrefs } = await import("../src/app/cabinet/components/display-preferences.ts")
 const bookmark = { id: "a", title: "Alpha", url: "https://example.com", createdAt: "2026-01-01" }
@@ -48,7 +49,7 @@ const props = {
   getHostname: () => "example.com",
 }
 const render = (Component, extra) => renderToStaticMarkup(
-  React.createElement(TooltipProvider, null, React.createElement(Component, { ...props, ...extra }))
+  React.createElement(QueryClientProvider, { client: new QueryClient() }, React.createElement(TooltipProvider, null, React.createElement(Component, { ...props, ...extra })))
 )
 
 test("failed queries show a retryable error, never a misleading empty library", () => {

@@ -18,6 +18,7 @@ import type {
 import type {
   AuthUser,
   ChangePasswordRequest,
+  DeleteAccountRequest,
   ErrorResponse,
   UpdateUserRequest,
   UserActionResponse
@@ -89,13 +90,15 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getChangePasswordHandlerMutationOptions(options), queryClient);
     }
     export const deleteAccountHandler = (
-
+    deleteAccountRequest: DeleteAccountRequest,
  options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
 
 
       return customInstance<UserActionResponse>(
-      {url: `/v1/users/me`, method: 'DELETE', signal
+      {url: `/v1/users/me`, method: 'DELETE',
+      headers: {'Content-Type': 'application/json', },
+      data: deleteAccountRequest, signal
     },
       options);
     }
@@ -103,9 +106,9 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-export const getDeleteAccountHandlerMutationOptions = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAccountHandler>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteAccountHandler>>, TError,void, TContext> => {
+export const getDeleteAccountHandlerMutationOptions = <TError = ErrorResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAccountHandler>>, TError,{data: DeleteAccountRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteAccountHandler>>, TError,{data: DeleteAccountRequest}, TContext> => {
 
 const mutationKey = ['deleteAccountHandler'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -117,10 +120,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAccountHandler>>, void> = () => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAccountHandler>>, {data: DeleteAccountRequest}> = (props) => {
+          const {data} = props ?? {};
 
-
-          return  deleteAccountHandler(requestOptions)
+          return  deleteAccountHandler(data,requestOptions)
         }
 
 
@@ -131,15 +134,15 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type DeleteAccountHandlerMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAccountHandler>>>
+    export type DeleteAccountHandlerMutationBody = DeleteAccountRequest
+    export type DeleteAccountHandlerMutationError = ErrorResponse
 
-    export type DeleteAccountHandlerMutationError = unknown
-
-    export const useDeleteAccountHandler = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAccountHandler>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
+    export const useDeleteAccountHandler = <TError = ErrorResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAccountHandler>>, TError,{data: DeleteAccountRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof deleteAccountHandler>>,
         TError,
-        void,
+        {data: DeleteAccountRequest},
         TContext
       > => {
       return useMutation(getDeleteAccountHandlerMutationOptions(options), queryClient);

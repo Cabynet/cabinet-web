@@ -7,10 +7,10 @@
  */
 
 export interface PresignUploadResponse {
-  asset_id: string;
+  assetId: string;
   /** @minimum 0 */
-  expires_seconds: number;
-  object_key: string;
-  public_url: string;
-  upload_url: string;
+  expiresSeconds: number;
+  objectKey: string;
+  publicUrl: string;
+  uploadUrl: string;
 }

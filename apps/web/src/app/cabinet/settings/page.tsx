@@ -15,11 +15,12 @@ import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/sonner"
 import { useConfirm } from "@/hooks/use-confirm"
 import { authClient } from "@/lib/auth-client"
-import { AXIOS_INSTANCE, useBookmarksControllerGetHealthSummary, useBookmarksControllerFindAll, useBookmarksControllerGetDuplicates, useBookmarksControllerCleanDuplicates, useBookmarksControllerTriggerHealthCheck, useBookmarksControllerImport } from "@/lib/api-client"
+import { bookmarkFromApi } from "@/lib/api-model"
+import { AXIOS_INSTANCE, useFoldersControllerFindAll, useBookmarksControllerGetHealthSummary, useBookmarksControllerFindAll, useBookmarksControllerGetDuplicates, useBookmarksControllerCleanDuplicates, useBookmarksControllerTriggerHealthCheck, useBookmarksControllerImport } from "@/lib/api-client"
 import { defaultDisplayPreferences, densityOptions, isDensity, type DisplayPreferences } from "../components/display-preferences"
 import { MoodboardCard } from "../components/bookmark-moodboard-view"
 import { TagsSettings } from "./tags-settings"
-import { DeleteAccount, SignInMethods } from "./account-settings"
+import { DeleteAccount } from "./account-settings"
 import { readBookmarkImport } from "@/lib/import-bookmarks"
 
 const settingsTabs = ["appearance", "account", "data", "tags", "maintenance", "shortcuts"] as const
@@ -60,7 +61,9 @@ export default function SettingsPage() {
   const [displayPrefs, setDisplayPrefs] = useState<DisplayPreferences>(defaultDisplayPreferences)
   const [preferenceStatus, setPreferenceStatus] = useState("")
   const { data: previewData, isLoading: isPreviewLoading, isError: isPreviewError } = useBookmarksControllerFindAll({ limit: 1, sort: "newest", isArchived: false, isTrash: false }, { query: { staleTime: 60000 } })
-  const previewBookmark = (previewData as any)?.data?.data?.[0]
+  const { data: previewFolders } = useFoldersControllerFindAll()
+  const previewItem = previewData?.items[0] ? bookmarkFromApi(previewData.items[0]) : undefined
+  const previewBookmark = previewItem && { ...previewItem, folder: previewFolders?.find((folder) => folder.id === previewItem.folderId) }
   const { data: healthData, refetch: refetchHealth } = useBookmarksControllerGetHealthSummary()
   const health = (healthData as any)?.data || healthData
   const { data: duplicatesData, refetch: refetchDuplicates } = useBookmarksControllerGetDuplicates({ query: { enabled: true } })
@@ -78,7 +81,10 @@ export default function SettingsPage() {
     try {
       const parsed = JSON.parse(localStorage.getItem("cabinet_display_preferences") || "null")
       if (typeof parsed === "object" && parsed !== null) setDisplayPrefs({ ...defaultDisplayPreferences, ...parsed })
-    } catch {}
+    } catch {
+      // Ignore corrupted or inaccessible local storage
+      return
+    }
   }, [])
 
   const savePreference = (key: string, value: string) => {
@@ -165,11 +171,9 @@ export default function SettingsPage() {
         </div>
       </header>
       <Tabs value={tab} onValueChange={changeTab} className="flex flex-col gap-8">
-        <div className="min-w-0 overflow-x-auto">
-          <TabsList variant="line" className="h-auto w-max min-w-full justify-start gap-4">
-            {([ ["appearance", "Appearance", PaintBrush], ["account", "Account", User], ["data", "Data & Export", Database], ["tags", "Tags", Tag], ["maintenance", "Maintenance", Wrench], ["shortcuts", "Shortcuts", Keyboard] ] as const).map(([value, label, Icon]) => <TabsTrigger key={value} value={value} className="min-h-11 shrink-0 gap-2 text-sm"><Icon />{label}</TabsTrigger>)}
-          </TabsList>
-        </div>
+        <TabsList variant="line" className="h-auto w-full flex-wrap justify-start gap-2 border-b border-border/60 pb-px sm:gap-4">
+          {([ ["appearance", "Appearance", PaintBrush], ["account", "Account", User], ["data", "Data & Export", Database], ["tags", "Tags", Tag], ["maintenance", "Maintenance", Wrench], ["shortcuts", "Shortcuts", Keyboard] ] as const).map(([value, label, Icon]) => <TabsTrigger key={value} value={value} className="min-h-11 shrink-0 gap-2 text-sm"><Icon />{label}</TabsTrigger>)}
+        </TabsList>
         <TabsContent value="appearance" className="grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_260px]">
           <div className="flex min-w-0 flex-col gap-8">
           <SettingsSection title="Theme" description="Choose a light or dark library, or follow your device. Changes apply immediately.">
@@ -206,9 +210,6 @@ export default function SettingsPage() {
           <SettingsSection title="Your account" description="The account connected to this Cabinet library.">
             <div className="flex items-center gap-3"><span className="flex size-11 shrink-0 items-center justify-center rounded-md bg-secondary text-lg">{user?.name?.[0]?.toUpperCase() || "C"}</span><div className="min-w-0"><p className="truncate text-base font-medium">{user?.name || "Cabinet User"}</p><p className="truncate text-sm text-muted-foreground">{user?.email || "No email available"}</p></div></div>
             {user?.id && <p className="text-xs text-muted-foreground">Account ID: <code>{user.id.slice(0, 8)}</code></p>}
-          </SettingsSection>
-          <SettingsSection title="Sign-in methods" description="The accounts you can sign in with. Connect both so you always have a way back in.">
-            <SignInMethods />
           </SettingsSection>
           <SettingsSection title="Session" description="Sign out of Cabinet on this browser. Your saved library stays in your account."><Button variant="outline" className="w-fit" onClick={handleLogout}><SignOut data-icon="inline-start" />Sign Out</Button></SettingsSection>
           <SettingsSection title="Delete account" description="Close your Cabinet account and erase your library.">

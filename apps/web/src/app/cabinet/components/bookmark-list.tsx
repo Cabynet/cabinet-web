@@ -1,4 +1,6 @@
 import React from "react"
+import { useQuery } from "@tanstack/react-query"
+import { getBookmark } from "@/lib/api-client"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
@@ -20,6 +22,15 @@ import { BookmarkInspector, type BookmarkInspectorHandle } from "./bookmark-insp
 import type { DisplayPreferences } from "./display-preferences"
 import { adjacentPreviewBookmark, moodboardColumnCount } from "@/lib/bookmark-view"
 import { editorPath } from "@/lib/bookmark-kind"
+
+// Module-level so memoized cards receive the same function on every render.
+const getHostname = (url: string) => {
+  try {
+    return new URL(url).hostname
+  } catch {
+    return url || ""
+  }
+}
 
 interface BookmarkListProps {
   title?: string
@@ -122,6 +133,15 @@ export function BookmarkList({
   const previewBookmark = onPreviewBookmarkChange ? controlledPreview ?? null : localPreview
   const setPreviewBookmark = onPreviewBookmarkChange ?? setLocalPreview
   const [showPreviewDetails, setShowPreviewDetails] = React.useState(true)
+  const previewDetails = useQuery({
+    queryKey: ["bookmark-details", previewBookmark?.id],
+    enabled: !!previewBookmark?.isSummary && !!onUpdateBookmark && showPreviewDetails,
+    gcTime: 0,
+    queryFn: ({ signal }) => getBookmark(previewBookmark.id, signal),
+  })
+  const livePreview = bookmarks.find((item) => item.id === previewBookmark?.id) || previewBookmark
+  const fullPreview = previewBookmark?.isSummary ? previewDetails.data : previewBookmark
+  const inspectorBookmark = fullPreview ? { ...fullPreview, ...livePreview, notes: fullPreview.notes, noteDocument: fullPreview.noteDocument, isSummary: false } : null
   const inspectorRef = React.useRef<BookmarkInspectorHandle>(null)
   const navigating = React.useRef(false)
   const navigatePreview = async (next: any | null) => {
@@ -139,20 +159,21 @@ export function BookmarkList({
     const result = await onUpdateBookmark(id, data)
     const saved = result?.data?.data ?? result?.data ?? result
     setPreviewBookmark((current: any) => current?.id !== id ? current : {
-      ...current, ...data,
+      ...current, ...(current.isSummary ? previewDetails.data : {}), ...data,
+      isSummary: false,
       tags: data.tags?.map((name: string) => ({ name })) ?? current.tags,
       folder: folders.find((folder) => folder.id === data.folderId) || null,
       ...(saved?.id === id ? saved : {}),
     })
     return result
   }
-  const openBookmark = (bookmark: any) => {
+  const openBookmark = React.useCallback((bookmark: any) => {
     if (editorPath(bookmark) || !bookmark.url) {
       onEditBookmark(bookmark)
     } else {
       setPreviewBookmark(bookmark)
     }
-  }
+  }, [onEditBookmark, setPreviewBookmark])
   const containerRef = React.useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = React.useState(0)
   const previewBookmarks = isDuplicatesView
@@ -196,14 +217,6 @@ export function BookmarkList({
       return "Archive"
     }
     return "All items"
-  }
-
-  const getHostname = (url: string) => {
-    try {
-      return new URL(url).hostname
-    } catch {
-      return url || ""
-    }
   }
 
   const formatNames = { links: "links", notes: "notes", drawings: "drawings", media: "videos or media", documents: "PDF documents" } as const
@@ -558,11 +571,11 @@ export function BookmarkList({
           onClose={() => void navigatePreview(null)}
           showDetails={showPreviewDetails}
           onToggleDetails={() => { if (showPreviewDetails) void closeDetails(); else setShowPreviewDetails(true) }}
-          inspector={onUpdateBookmark ? (
+          inspector={onUpdateBookmark ? inspectorBookmark ? (
             <BookmarkInspector
               ref={inspectorRef}
               key={previewBookmark.id}
-              bookmark={bookmarks.find((item) => item.id === previewBookmark.id) || previewBookmark}
+              bookmark={inspectorBookmark}
               folders={folders}
               onCloseWithDraft={() => setPreviewBookmark(null)}
               onUpdateBookmark={updatePreview}
@@ -572,6 +585,10 @@ export function BookmarkList({
               onToggleArchive={onToggleArchive}
               className="h-full w-full border-0 lg:w-96 lg:shrink-0"
             />
+          ) : (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-5 lg:w-96 lg:shrink-0" role="status">
+              {previewDetails.isError ? <><p>Details could not be loaded.</p><Button variant="outline" onClick={() => void previewDetails.refetch()}>Retry</Button></> : <p>Loading details…</p>}
+            </div>
           ) : undefined}
           onPrevious={previousBookmark ? () => void navigatePreview(previousBookmark) : undefined}
           onNext={nextBookmark ? () => void navigatePreview(nextBookmark) : undefined}

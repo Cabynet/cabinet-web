@@ -65,8 +65,8 @@ export function MobileAddBookmarkDrawer({
         params: { url: targetUrl },
       })
       const data = res.data
-      if (data && data.success && data.data) {
-        const metadata = data.data
+      if (data) {
+        const metadata = data
         if (metadata.title) {
           bookmarkForm.setFieldValue("title", metadata.title)
         }

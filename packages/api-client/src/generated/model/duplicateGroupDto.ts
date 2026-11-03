@@ -5,13 +5,13 @@
  * High-performance modular monolith backend for Cabinet bookmark manager
  * OpenAPI spec version: 1.0.0
  */
-import type { DuplicateItemDto } from './duplicateItemDto.js';
+import type { BookmarkListItem } from './bookmarkListItem.js';
 
 export interface DuplicateGroupDto {
   /** @minimum 0 */
   count: number;
   /** @nullable */
   domain?: string | null;
-  items: DuplicateItemDto[];
+  items: BookmarkListItem[];
   url: string;
 }

@@ -11,6 +11,11 @@ try {
     await context.addInitScript(() => { if (window === window.top) localStorage.setItem('cabinet_view_mode', 'moodboard') })
     await context.route('**/v1/**', async (route) => {
       const url = new URL(route.request().url())
+      if (url.pathname.endsWith('/proxy-image/sign')) {
+        const { urls, kind } = route.request().postDataJSON()
+        const path = kind === 'page' ? 'proxy-page' : 'proxy-image'
+        return route.fulfill({ contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Credentials': 'true' }, body: JSON.stringify({ items: urls.map((u) => ({ url: u, signedUrl: `/v1/bookmarks/${path}?url=${encodeURIComponent(u)}&sig=test` })) }) })
+      }
       if (url.pathname.endsWith('/proxy-page')) {
         const message = mode === 'ready' ? 'cabinet-preview-ready' : 'cabinet-preview-error'
         // crash: the page renders, is confirmed, then breaks while its scripts run (e.g. Next.js hydration).

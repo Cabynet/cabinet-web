@@ -24,10 +24,11 @@ try {
     const path = new URL(request.url()).pathname
     const method = request.method()
     const body = request.postData() ? JSON.parse(request.postData()) : undefined
-    const response = (body, status = 200) => route.fulfill({ status, contentType: "application/json", headers: { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Credentials": "true" }, body: JSON.stringify(body) })
+    // The Rust API returns plain JSON (no { data } envelope) and { error: { code, message } } for failures.
+    const response = (body, status = 200) => route.fulfill({ status, contentType: "application/json", headers: { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Credentials": "true" }, body: JSON.stringify(body?.data !== undefined && Object.keys(body).length === 1 ? body.data : body) })
     if (method === "OPTIONS") return response({})
     if (method !== "GET") writes.push({ method, path, body })
-    if (path.endsWith("/auth/get-session")) return response(signedIn ? { user: { id: "owner", name: "Test owner", email: "owner@example.com" }, session: { id: "test", expiresAt: "2099-01-01T00:00:00Z" } } : null)
+    if (path.endsWith("/auth/me")) return signedIn ? response({ id: "owner", name: "Test owner", email: "owner@example.com", avatarUrl: null, session: { id: "test", expiresAt: "2099-01-01T00:00:00Z" } }) : response({ error: { code: "UNAUTHORIZED", message: "Authentication required" } }, 401)
     if (path.endsWith(`/invitations/${token}/accept`)) return response({ data: { folderId } }, joinStatus)
     if (path.endsWith("/collaboration")) return response({ data: { owner: { id: "owner", name: "Test owner", email: "owner@example.com" }, inviteEnabled, inviteRole, members } })
     if (path.endsWith("/invitation")) {
@@ -37,7 +38,7 @@ try {
       return response({ data: { token, inviteEnabled, inviteRole } })
     }
     if (path.endsWith(`/folders/${folderId}/members`) && method === "POST") {
-      if (body.email === "nobody@example.com") return response({ message: "No Cabinet account uses this email. Send them the invite link instead." }, 404)
+      if (body.email === "nobody@example.com") return response({ error: { code: "NOT_FOUND", message: "No Cabinet account uses this email. Send them the invite link instead." } }, 404)
       members = [...members, { userId: "22222222-2222-4222-8222-222222222222", role: body.role, user: { name: "Friend", email: body.email } }]
       return response({ data: members.at(-1) })
     }
@@ -47,12 +48,12 @@ try {
       return response({ data: {} })
     }
     if (path.endsWith("/share")) {
-      if (method === "PUT") shareToken = "b".repeat(64)
+      if (method === "PUT" || method === "POST") shareToken = "b".repeat(64)
       if (method === "DELETE") shareToken = null
       return response({ data: { shareToken } })
     }
     if (path.endsWith("/folders")) return response({ data: [{ id: folderId, userId: "owner", isOwner: true, access: "OWNER", name: "Team links", parentId: null }] })
-    if (path.endsWith("/bookmarks")) return response({ data: { data: [], totalCount: 0, nextCursor: null } })
+    if (path.endsWith("/bookmarks")) return response({ items: [], totalCount: 0, nextCursor: null, hasMore: false })
     if (path.endsWith("/health")) return response({ data: { total: 0, broken: 0, redirected: 0, favorites: 0, archived: 0, trash: 0, duplicates: 0 } })
     return response({ data: [] })
   })
@@ -62,7 +63,7 @@ try {
   await expect(page.locator("main").getByRole("alert")).toHaveText("Invalid invitation link.")
 
   signedIn = true
-  await context.addCookies([{ name: "cabinet.session_token", value: "browser-test", url: origin }])
+  await context.addCookies([{ name: "cabinet_session", value: "browser-test", url: origin }])
   await page.goto(`${origin}/invite/${token}`)
   await page.getByRole("button", { name: "Join folder", exact: true }).click()
   await expect(page.locator("main").getByRole("alert")).toContainText("no longer active")

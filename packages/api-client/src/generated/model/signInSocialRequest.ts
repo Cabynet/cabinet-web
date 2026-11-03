@@ -10,6 +10,6 @@ export interface SignInSocialRequest {
   /** @nullable */
   callbackURL?: string | null;
   /** @nullable */
-  callback_url?: string | null;
+  callbackUrl?: string | null;
   provider: string;
 }

@@ -8,8 +8,9 @@
 import type { BookmarkListItem } from './bookmarkListItem.js';
 
 export interface BookmarkListResponse {
-  has_more: boolean;
+  hasMore: boolean;
   items: BookmarkListItem[];
   /** @nullable */
-  next_cursor?: string | null;
+  nextCursor?: string | null;
+  totalCount: number;
 }
