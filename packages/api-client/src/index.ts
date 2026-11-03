@@ -1,13 +1,5 @@
-export * from "./generated/auth/auth"
-export * from "./generated/bookmarks/bookmarks"
-export * from "./generated/folders/folders"
-export * from "./generated/media/media"
-export * from "./generated/notes/notes"
-export * from "./generated/search/search"
-export * from "./generated/tags/tags"
-export * from "./generated/tasks/tasks"
-export * from "./generated/users/users"
-export * from "./generated/model"
+export * from "./hooks"
+export * from "./types"
 export * from "./custom-instance"
 export { cabinetMediaApi } from "./cabinet-media"
 export type {
@@ -30,7 +22,7 @@ export type {
   BookmarkListItem as BookmarkListItemDto,
   FolderDto as BookmarkFolderDto,
   TagDto as BookmarkTagDto,
-} from "./generated/model"
+} from "./types"
 
 export type BookmarksControllerFindAllSort =
   | "newest"

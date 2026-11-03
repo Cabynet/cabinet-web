@@ -14,19 +14,6 @@ allowBuilds:
   sharp: true
   unrs-resolver: true
 minimumReleaseAgeExclude:
-  - '@orval/angular@8.21.0'
-  - '@orval/axios@8.21.0'
-  - '@orval/core@8.21.0'
-  - '@orval/effect@8.21.0'
-  - '@orval/fetch@8.21.0'
-  - '@orval/hono@8.21.0'
-  - '@orval/mcp@8.21.0'
-  - '@orval/mock@8.21.0'
-  - '@orval/query@8.21.0'
-  - '@orval/solid-start@8.21.0'
-  - '@orval/swr@8.21.0'
-  - '@orval/zod@8.21.0'
   - '@tanstack/form-core@1.33.2'
   - '@tanstack/react-form@1.33.2'
-  - orval@8.21.0
   - postcss@8.5.18

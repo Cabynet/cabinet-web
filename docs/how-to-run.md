@@ -1,6 +1,6 @@
 # Running Cabinet (web)
 
-This repository holds the Next.js web app (`apps/web`), the browser extension (`apps/extension`) and the generated API client (`packages/api-client`). The Rust API lives in its own repository, [Cabynet/cabinet-api](https://github.com/Cabynet/cabinet-api); deployment of the API is documented there.
+This repository holds the Next.js web app (`apps/web`), the browser extension (`apps/extension`) and the API client hooks and types (`packages/api-client`). The Rust API lives in its own repository, [Cabynet/cabinet-api](https://github.com/Cabynet/cabinet-api); deployment of the API is documented there.
 
 ## Requirements
 
@@ -43,14 +43,15 @@ pnpm build          # builds the API client, type-checks and builds the web app
 
 Browser tests (`pnpm --filter @cabinet/web test:moodboard`, `test:notes`, ...) are run by hand. `NEXT_PUBLIC_API_URL` must be unset when running `pnpm test`.
 
-## Changing the API contract
+## Changing the API
 
-The API owns `openapi.json`. After an API change, in `cabinet-api` run `cargo run -- --export-openapi`, copy the file to `packages/api-client/openapi.json` here, then:
+The web app talks to the API through hand-written hooks and types in `packages/api-client/src` (`hooks.ts`, `types.ts`). There is no code generator: when an endpoint or response shape changes in `cabinet-api`, update those two files by hand and run:
 
 ```bash
-pnpm --filter @cabinet/api-client generate
 pnpm --filter @cabinet/api-client build
 pnpm --filter @cabinet/web exec tsc --noEmit
 ```
+
+The API still publishes `openapi.json` (and Swagger UI at `/api/docs`) as reference documentation.
 
 The web app is deployed from this repository by Vercel (`apps/web/vercel.json`).
