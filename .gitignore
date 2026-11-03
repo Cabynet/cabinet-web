@@ -119,3 +119,6 @@ cypress/videos/
 cypress/screenshots/
 .vercel
 .taste-skill/
+
+# Backend lives in its own repo (Cabynet/cabinet-api); local symlink only
+apps/api-rust
