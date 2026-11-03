@@ -2,72 +2,38 @@ name: CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main ]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build-and-test:
+  web:
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgrespassword
-          POSTGRES_DB: atlas
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d atlas"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    env:
-      DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/atlas?schema=public
-      BETTER_AUTH_SECRET: a-unique-secret-with-at-least-32-characters-for-ci
-      FRONTEND_URL: http://localhost:3000
-      API_URL: http://localhost:4000
-      REDIS_HOST: localhost
-      REDIS_PORT: "6379"
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install Node.js
-        uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v4 # version comes from "packageManager" in package.json
+
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: pnpm
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 11.9.0
+      - run: pnpm install --frozen-lockfile
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
 
-      - name: Generate Prisma Client
-        run: pnpm --filter @cabinet/api prisma:generate
-
-      - name: Deploy migrations
-        run: pnpm --filter @cabinet/api exec prisma migrate deploy
-
-      - name: Build packages and apps
-        run: pnpm build
-
-      - name: Run tests
+      - name: Unit tests
         run: pnpm test
+
+      # Builds the generated API client, type-checks and builds the web app.
+      - name: Build
+        run: pnpm build
+        env:
+          NEXT_PUBLIC_API_URL: https://api.example.test
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
