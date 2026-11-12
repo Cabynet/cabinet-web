@@ -1,8 +1,21 @@
-export function moodboardColumnCount(width: number): number {
-  if (width > 0 && width < 480) return 1
-  if (width > 0 && width < 768) return 2
-  if (width > 0 && width < 1024) return 3
-  return 4
+type Density = "comfortable" | "compact" | "visual"
+
+// Narrowest a card may get before the grid drops a column. Phones allow two
+// small columns for the denser layouts; Comfortable stays a single readable column.
+const MIN_CARD_WIDTH: Record<Density, number> = { comfortable: 300, compact: 240, visual: 220 }
+const PHONE_MIN_CARD_WIDTH: Record<Density, number> = { comfortable: 300, compact: 150, visual: 150 }
+const PHONE_WIDTH = 640
+const MAX_COLUMNS = 5
+
+export function moodboardGap(width: number, density: Density = "comfortable"): number {
+  return density === "visual" && width >= PHONE_WIDTH ? 20 : 12
+}
+
+export function moodboardColumnCount(width: number, density: Density = "comfortable"): number {
+  if (width <= 0) return 4
+  const min = (width < PHONE_WIDTH ? PHONE_MIN_CARD_WIDTH : MIN_CARD_WIDTH)[density]
+  const gap = moodboardGap(width, density)
+  return Math.min(MAX_COLUMNS, Math.max(1, Math.floor((width + gap) / (min + gap))))
 }
 
 export function adjacentPreviewBookmark<T extends { id: string; url?: string; type?: string }>(

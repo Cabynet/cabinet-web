@@ -107,6 +107,9 @@ try {
   await page.locator('[aria-label="Density"]').getByText("Comfortable", { exact: true }).click()
   await expect(page.getByRole("status")).toHaveText("Saved on this device")
   await expect(page.locator('[aria-label="Display preview"] [data-slot="card-content"]')).toHaveCSS("padding", "16px")
+  // Visible details are a Compact-only setting.
+  await expect(page.getByRole("switch", { name: "Preview image", exact: true })).toHaveCount(0)
+  await page.locator('[aria-label="Density"]').getByText("Compact", { exact: true }).click()
   await page.getByRole("switch", { name: "Preview image", exact: true }).click()
   await expect(page.locator('[aria-label="Display preview"] img')).toHaveCount(0)
   for (const width of [1440, 390]) {
@@ -166,7 +169,9 @@ try {
   await expect(page.locator('[data-slot="sidebar-content"] [data-folder-drop]').first()).toBeVisible()
   await page.screenshot({ path: `${directory}/sidebar-1440.png`, animations: "disabled" })
   await page.setViewportSize({ width: 390, height: 960 })
-  await page.getByRole("button", { name: "Toggle Sidebar", exact: true }).click()
+  // Phones open the sidebar from the bottom navigation; the header trigger is desktop-only.
+  await expect(page.getByRole("button", { name: "Toggle Sidebar", exact: true })).toBeHidden()
+  await page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "Menu", exact: true }).click()
   const mobileSidebar = page.getByRole("dialog", { name: "Sidebar", exact: true })
   await expect(mobileSidebar.getByText("Cabinet", { exact: true })).toBeVisible()
   await page.screenshot({ path: `${directory}/sidebar-mobile.png`, animations: "disabled" })

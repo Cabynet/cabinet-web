@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
-import { Star, PushPin, Archive, PencilSimple, Trash, ArrowSquareOut, Copy, DotsThreeVertical, LinkSimple, ArrowCounterClockwise, FileText, FilePdf, DownloadSimple, VideoCamera, Clock, FolderSimple, Scribble, Eye, CheckSquare, type Icon } from "@phosphor-icons/react"
+import { Star, PushPin, Archive, PencilSimple, Trash, ArrowSquareOut, Copy, DotsThreeVertical, LinkSimple, ArrowCounterClockwise, FileText, FilePdf, DownloadSimple, VideoCamera, FolderSimple, Scribble, Eye, CheckSquare, type Icon } from "@phosphor-icons/react"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { toast } from "@/components/ui/sonner"
@@ -19,7 +19,7 @@ import { canDownloadMedia, highlightQuote, isDrawingBookmark, isImageBookmark, i
 import { safeHttpUrl } from "@/lib/shared-collection"
 import { activateBookmark, bookmarkOriginalHref } from "@/lib/bookmark-click"
 import { useProxiedImageUrl } from "@/lib/signed-proxy"
-import { defaultDisplayPreferences, type DisplayPreferences } from "./display-preferences"
+import { defaultDisplayPreferences, effectiveDisplayPreferences, type DisplayPreferences } from "./display-preferences"
 import { NoteContentPreview } from "./moodboard-note-preview"
 import { PdfPagePreview } from "./moodboard-pdf-preview"
 
@@ -30,6 +30,8 @@ export interface MoodboardCardProps {
   displayPreferences?: DisplayPreferences
   bookmark: any
   folders?: any[]
+  /** The folder being browsed; cards inside it don't repeat its name. */
+  contextFolderId?: string
   onSelectTag: (tagName: string) => void
   onToggleFavorite: (bookmark: any) => void
   onToggleArchive: (bookmark: any) => void
@@ -61,6 +63,17 @@ export type CardAction = {
   contextOnly?: boolean
 }
 
+/** A quiet placeholder in the thumbnail's spot; the label stays available to assistive tech. */
+function ThumbnailSkeleton({ pending, className }: { pending?: boolean; className?: string }) {
+  return (
+    <div
+      role="status"
+      aria-label={pending ? "Generating preview" : "Loading thumbnail"}
+      className={cn("w-full animate-pulse bg-muted motion-reduce:animate-none", className)}
+    />
+  )
+}
+
 export function MoodboardCard({
   showActions = true,
   nativeDrag = true,
@@ -68,6 +81,7 @@ export function MoodboardCard({
   displayPreferences,
   bookmark,
   folders = [],
+  contextFolderId,
   onSelectTag,
   onToggleFavorite,
   onToggleArchive,
@@ -89,7 +103,7 @@ export function MoodboardCard({
   const queryClient = useQueryClient()
   const hostname = getHostname(bookmark.url)
   const folderName = folders.find((folder) => folder.id === bookmark.folderId)?.name
-  const preferences = displayPreferences ?? defaultDisplayPreferences
+  const preferences = effectiveDisplayPreferences(displayPreferences ?? defaultDisplayPreferences)
   const isNote = isNoteBookmark(bookmark)
   // Highlights saved from a page by the browser extension; their link points back to that page.
   const quote = highlightQuote(bookmark)
@@ -115,6 +129,7 @@ export function MoodboardCard({
     })
 
   const cleanHost = hostname.replace(/^www\./, "")
+  const showMetaFolder = preferences.showFolder && !(contextFolderId && bookmark.folderId === contextFolderId)
   const siteLabel = bookmark.siteName || cleanHost
   const rawTitle = (bookmark.title || "").trim()
   const titleDuplicatesHost =
@@ -157,6 +172,7 @@ export function MoodboardCard({
     "loading" | "ready" | "error"
   >(cachedImageSrc ? "ready" : rawImageUrl || isPendingEnrichment ? "loading" : "error")
   const [pdfAspectRatio, setPdfAspectRatio] = React.useState(16 / 10)
+  const showMetaHost = showWebsite && !!hostname && (imageStatus !== "error" || !preferences.showImage)
 
   React.useEffect(() => {
     const cached = queryClient.getQueryData<string>(["bookmark-image", bookmark.imageUrl || ""])
@@ -312,7 +328,8 @@ export function MoodboardCard({
           checked={isSelected}
           onCheckedChange={onToggleSelect}
           aria-label={`Select ${bookmark.title || "bookmark"}`}
-          className="border-input"
+          // Invisible hit area so the whole 26px chip toggles selection, not just the 16px box.
+          className="relative border-input after:absolute after:-inset-[5px] after:content-['']"
         />
       </div>}
 
@@ -479,11 +496,11 @@ export function MoodboardCard({
     return withContextMenu(
       <Card
         {...cardBehavior}
-        className="group/card [&[data-readonly=true]_[data-bookmark-actions]]:hidden flex h-auto min-h-52 w-full cursor-pointer flex-col gap-2.5 overflow-visible border-0 bg-transparent text-card-foreground shadow-none"
+        className="group/card [&[data-readonly=true]_[data-bookmark-actions]]:hidden flex h-auto min-h-52 max-sm:min-h-40 w-full cursor-pointer flex-col gap-2.5 overflow-visible border-0 bg-transparent text-card-foreground shadow-none"
       >
         <div
           className={cn(
-            "relative min-h-44 w-full overflow-hidden rounded-lg bg-card shadow-[0_1px_2px_rgb(0_0_0/0.04),0_12px_32px_-18px_rgb(0_0_0/0.28)] transition-shadow group-hover/card:shadow-[0_1px_2px_rgb(0_0_0/0.05),0_18px_40px_-18px_rgb(0_0_0/0.36)] motion-reduce:transition-none dark:shadow-none",
+            "relative min-h-28 w-full overflow-hidden rounded-lg bg-card sm:min-h-44 shadow-[0_1px_2px_rgb(0_0_0/0.04),0_12px_32px_-18px_rgb(0_0_0/0.28)] transition-shadow group-hover/card:shadow-[0_1px_2px_rgb(0_0_0/0.05),0_18px_40px_-18px_rgb(0_0_0/0.36)] motion-reduce:transition-none dark:shadow-none",
             isSelected ? "ring-2 ring-inset ring-library-olive" : "dark:ring-1 dark:ring-border/60"
           )}
         >
@@ -536,12 +553,7 @@ export function MoodboardCard({
             >
               {showPicture ? (
                 <>
-                  {imageStatus === "loading" && (
-                    <div className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 bg-muted/40 text-xs text-muted-foreground" role="status" aria-label="Loading thumbnail">
-                      <Clock className="size-5 animate-spin" style={{ animationDuration: "3s" }} />
-                      {isPendingEnrichment ? "Generating preview..." : "Loading thumbnail..."}
-                    </div>
-                  )}
+                  {imageStatus === "loading" && <ThumbnailSkeleton pending={isPendingEnrichment} className="aspect-[4/3]" />}
                   {currentSrc && (
                     <img
                       ref={imageRef}
@@ -553,7 +565,7 @@ export function MoodboardCard({
                       alt={bookmark.title || hostname}
                       onLoad={handleImageLoad}
                       onError={handleImageError}
-                      className={cn("block h-auto min-h-44 max-h-[36rem] w-full object-cover transition-opacity duration-200 motion-reduce:transition-none", imageStatus === "ready" ? "opacity-100" : "absolute inset-0 h-full opacity-0")}
+                      className={cn("block h-auto min-h-28 max-h-[36rem] w-full object-cover sm:min-h-44 transition-opacity duration-200 motion-reduce:transition-none dark:brightness-[.92]", imageStatus === "ready" ? "opacity-100" : "absolute inset-0 h-full opacity-0")}
                     />
                   )}
                   {isVideo && imageStatus === "ready" && (
@@ -574,11 +586,9 @@ export function MoodboardCard({
 
         {(caption || linkStatus || bookmark.isPinned || mobileActions) && (
           <div className="flex items-start gap-1 px-1">
-            {/* Balances the mobile actions button so the caption stays centred under the card. */}
-            {mobileActions && <span aria-hidden="true" className="size-11 shrink-0 md:hidden" />}
             <CaptionTag
               {...(inCabinet ? { type: "button" as const, onClick: activate } : {})}
-              className="line-clamp-2 min-w-0 flex-1 text-center text-sm leading-5 text-muted-foreground"
+              className={cn("line-clamp-2 min-w-0 flex-1 text-sm leading-5 text-muted-foreground", mobileActions ? "text-left md:text-center" : "text-center")}
             >
               {bookmark.isPinned && <PushPin className="mr-1 inline size-3 align-[-1px] text-library-olive" weight="fill" aria-label="Pinned" />}
               {linkStatus && <span className={cn("mr-1.5", linkStatus === "Broken" && "text-destructive")}>{linkStatus}{caption && " ·"}</span>}
@@ -595,7 +605,7 @@ export function MoodboardCard({
     <Card
       {...cardBehavior}
       className={cn(
-        "group/card [&[data-readonly=true]_[data-bookmark-actions]]:hidden flex h-auto min-h-52 w-full cursor-pointer flex-col overflow-hidden rounded-lg border border-border/80 bg-card text-card-foreground shadow-none transition-colors hover:border-foreground/25",
+        "group/card @container/card [&[data-readonly=true]_[data-bookmark-actions]]:hidden flex h-auto min-h-52 w-full cursor-pointer flex-col overflow-hidden rounded-lg border border-border/80 bg-card text-card-foreground shadow-none transition-colors hover:border-foreground/25",
         isSelected
           ? "border-library-olive ring-1 ring-library-olive/30"
           : "border-border/80"
@@ -654,26 +664,7 @@ export function MoodboardCard({
             className="group/header relative block w-full overflow-hidden bg-muted/20"
           >
             <>
-              {/* Thumbnail loading state with Clock icon */}
-              {imageStatus === "loading" && (
-                <div
-                  className="relative flex aspect-[16/10] w-full flex-col items-center justify-center bg-muted/40 p-4 text-muted-foreground"
-                  role="status"
-                  aria-label="Loading thumbnail"
-                >
-                  <div className="flex size-10 items-center justify-center rounded-sm border border-border/60 bg-background/80 shadow-2xs">
-                    <Clock
-                      className="size-5 text-muted-foreground animate-spin"
-                      style={{ animationDuration: "3s" }}
-                    />
-                  </div>
-                  <span className="mt-2 text-xs text-muted-foreground">
-                    {isPendingEnrichment
-                      ? "Generating preview..."
-                      : "Loading thumbnail..."}
-                  </span>
-                </div>
-              )}
+              {imageStatus === "loading" && <ThumbnailSkeleton pending={isPendingEnrichment} className="aspect-[16/10]" />}
 
               {currentSrc && (
                 <img
@@ -687,7 +678,7 @@ export function MoodboardCard({
                   onLoad={handleImageLoad}
                   onError={handleImageError}
                   className={cn(
-                    "block h-auto max-h-96 w-full object-cover transition-opacity duration-200 motion-reduce:transition-none",
+                    "block h-auto max-h-96 w-full object-cover transition-opacity duration-200 motion-reduce:transition-none dark:brightness-[.92]",
                     imageStatus === "ready" ? "opacity-100" : "absolute inset-0 h-full opacity-0"
                   )}
                 />
@@ -772,27 +763,24 @@ export function MoodboardCard({
               <SearchHighlight text={bookmark.description} />
             </p>
           )}
-          {showWebsite && hostname && (imageStatus !== "error" || !preferences.showImage) && (
-            <p className="truncate text-xs leading-5 text-muted-foreground">
-              {hostname}
-            </p>
-          )}
         </div>
 
         {access === "viewer" && <p className="text-xs text-muted-foreground">Shared · View only</p>}
-        {(preferences.showFolder || preferences.showDate || bookmark.isPinned) && (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-xs leading-5 text-muted-foreground">
-            {bookmark.isPinned && <span className="flex items-center gap-1 text-library-olive"><PushPin className="size-3" weight="fill" />Pinned</span>}
-            {preferences.showFolder && (
-              <span className="flex min-w-0 max-w-full items-center gap-1" title={folderName || "Unfiled"}>
+        {(showMetaHost || showMetaFolder || preferences.showDate || bookmark.isPinned) && (
+          // One quiet line: where it's from, when it was saved, where it lives. Narrow cards drop the folder, then the date.
+          <div className="flex min-w-0 items-center gap-x-1.5 overflow-hidden pt-1 text-xs leading-5 text-muted-foreground [&>*+*]:before:mr-1.5 [&>*+*]:before:content-['·'] [&>*+*]:before:text-muted-foreground/60">
+            {bookmark.isPinned && <span className="flex shrink-0 items-center gap-1 text-library-olive"><PushPin className="size-3" weight="fill" />Pinned</span>}
+            {showMetaHost && <span className="max-w-[55%] shrink-0 truncate" title={hostname}>{cleanHost}</span>}
+            {preferences.showDate && bookmark.createdAt && (
+              <time dateTime={bookmark.createdAt} title="Date added" className={cn("shrink-0 whitespace-nowrap", showMetaHost && "hidden @[14rem]/card:inline")}>
+                {new Date(bookmark.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
+              </time>
+            )}
+            {showMetaFolder && (
+              <span className="hidden min-w-0 shrink items-center gap-1 overflow-hidden @[16rem]/card:flex" title={folderName || "Unfiled"}>
                 <FolderSimple className="size-3 shrink-0" aria-hidden="true" />
                 <span className="truncate">{folderName || "Unfiled"}</span>
               </span>
-            )}
-            {preferences.showDate && bookmark.createdAt && (
-              <time dateTime={bookmark.createdAt} title="Date added" className="whitespace-nowrap">
-                {new Date(bookmark.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
-              </time>
             )}
           </div>
         )}

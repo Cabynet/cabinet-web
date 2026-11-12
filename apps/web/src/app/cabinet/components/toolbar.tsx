@@ -9,10 +9,10 @@ import {
   DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuCheckboxItem,
   DropdownMenuRadioGroup, DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu"
-import { SortAscending, MagnifyingGlass, Plus, CaretDown, BookmarkSimple, FileText, Scribble, X, Sliders, Command, UploadSimple } from "@phosphor-icons/react"
+import { SortAscending, MagnifyingGlass, Plus, CaretDown, BookmarkSimple, FileText, Scribble, X, Sliders, UploadSimple } from "@phosphor-icons/react"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 import { bookmarkSortOptions, isBookmarkSort, type BookmarkSort } from "@/lib/bookmark-order"
-import { defaultDisplayPreferences, densityOptions, isDensity, type DisplayPreferences } from "./display-preferences"
+import { defaultDisplayPreferences, densityOptions, hasVisibleDetails, isDensity, type DisplayPreferences } from "./display-preferences"
 import { BookmarkDialog } from "./bookmark-dialog"
 import { UploadFileDialog } from "./upload-file-dialog"
 
@@ -57,6 +57,7 @@ export function BookmarkViewControls({
               {densityOptions.filter((option) => option.value !== "comfortable").map((option) => <DropdownMenuRadioItem key={option.value} value={option.value}>{option.label}</DropdownMenuRadioItem>)}
             </DropdownMenuRadioGroup>
           </DropdownMenuGroup>
+          {hasVisibleDetails(displayPreferences.density) && <>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
             <DropdownMenuLabel>Visible details</DropdownMenuLabel>
@@ -64,6 +65,7 @@ export function BookmarkViewControls({
               <DropdownMenuCheckboxItem key={key} checked={displayPreferences[key]} onSelect={(event) => event.preventDefault()} onCheckedChange={(checked) => onDisplayPreferencesChange?.({ ...displayPreferences, [key]: checked })}>{label}</DropdownMenuCheckboxItem>
             ))}
           </DropdownMenuGroup>
+          </>}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
@@ -86,6 +88,9 @@ interface ToolbarProps {
   onCreateDrawing?: () => void
 }
 
+// The dashboard renders client-only, so the platform is known on first paint.
+const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform)
+
 export function Toolbar({ searchQuery, onSearchChange, isBookmarkModalOpen, setIsBookmarkModalOpen, isUploadModalOpen, setIsUploadModalOpen, bookmarkToEdit, bookmarkForm, folders, tags = [], resetBookmarkForm, onOpenCommandMenu, onCreateDrawing }: ToolbarProps) {
   const router = useRouter()
   const [localUploadOpen, setLocalUploadOpen] = React.useState(false)
@@ -107,14 +112,19 @@ export function Toolbar({ searchQuery, onSearchChange, isBookmarkModalOpen, setI
   return (
     <div className="flex w-full min-w-0 items-center justify-between gap-3">
       <InputGroup className="h-11 min-w-0 flex-1 rounded-md bg-card shadow-none sm:h-9 sm:max-w-xl">
-        <InputGroupInput id="cabinet-search-input" type="search" aria-label="Search bookmarks" placeholder="Search your library…" value={searchQuery} onChange={(event) => onSearchChange(event.target.value)} className="text-base md:text-sm" />
+        <InputGroupInput id="cabinet-search-input" type="search" aria-label="Search bookmarks" placeholder="Search your library…" value={searchQuery} onChange={(event) => onSearchChange(event.target.value)} className="text-base md:text-sm [&::-webkit-search-cancel-button]:appearance-none" />
         <InputGroupAddon align="inline-start"><MagnifyingGlass /></InputGroupAddon>
         <InputGroupAddon align="inline-end">
           {searchQuery ? <Button type="button" variant="ghost" size="icon-xs" aria-label="Clear search" onClick={() => onSearchChange("")}><X /></Button> : <kbd className="hidden rounded-sm border bg-background px-1.5 text-xs text-muted-foreground sm:block" title="Focus search (/)">/</kbd>}
         </InputGroupAddon>
       </InputGroup>
       <div className="hidden shrink-0 items-center gap-3 sm:flex">
-        {onOpenCommandMenu && <Button variant="ghost" size="icon" onClick={onOpenCommandMenu} aria-label="Open command menu" title="Command menu (⌘K)"><Command /></Button>}
+        {onOpenCommandMenu && (
+          <Button variant="ghost" onClick={onOpenCommandMenu} aria-label="Open command menu" aria-keyshortcuts={isMac ? "Meta+K" : "Control+K"} className="gap-2 px-2.5 text-muted-foreground hover:text-foreground">
+            <span className="hidden lg:inline">Commands</span>
+            <kbd className="rounded-sm border bg-background px-1.5 font-sans text-xs text-muted-foreground">{isMac ? "⌘K" : "Ctrl K"}</kbd>
+          </Button>
+        )}
         <ButtonGroup aria-label="Add to Cabinet">
           <Button onClick={() => handleCreate("BOOKMARK")}><Plus data-icon="inline-start" /> Add bookmark</Button>
           <DropdownMenu>

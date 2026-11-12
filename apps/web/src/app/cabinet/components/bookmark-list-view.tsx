@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGro
 import { toast } from "@/components/ui/sonner"
 import { canDownloadMedia, isDrawingBookmark, isNoteBookmark, isVideoBookmark, isPdfBookmark, itemAccess } from "@/lib/bookmark-kind"
 import { activateBookmark, bookmarkOriginalHref } from "@/lib/bookmark-click"
-import { defaultDisplayPreferences, type DisplayPreferences } from "./display-preferences"
+import { defaultDisplayPreferences, effectiveDisplayPreferences, type DisplayPreferences } from "./display-preferences"
 import { Sortable, SortableContent, SortableItem } from "@/components/ui/sortable"
 
 interface BookmarkListViewProps {
@@ -41,7 +41,7 @@ export function BookmarkListView({
   onDuplicateBookmark, getHostname, onReorder, isTrashView, onRestoreBookmark,
   onPermanentDeleteBookmark, onOpenActionSheet, onOpenDownload, onInspectBookmark,
 }: BookmarkListViewProps) {
-  const preferences = displayPreferences ?? defaultDisplayPreferences
+  const preferences = effectiveDisplayPreferences(displayPreferences ?? defaultDisplayPreferences)
   const handleCopyUrl = (url: string, event: React.MouseEvent) => {
     event.stopPropagation()
     navigator.clipboard?.writeText(url)

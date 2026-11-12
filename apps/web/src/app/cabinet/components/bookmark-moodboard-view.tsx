@@ -35,7 +35,11 @@ interface BookmarkMoodboardViewProps {
   displayPreferences?: DisplayPreferences
   bookmarks: any[]
   folders?: any[]
+  /** The folder being browsed; its name is redundant on its own cards. */
+  contextFolderId?: string
   activeColumnCount: number
+  /** Space between cards; defaults to the density's desktop spacing. */
+  gap?: number
   selectedBookmarkIds: string[]
   onToggleSelect: (id: string) => void
   onSelectTag: (tagName: string) => void
@@ -71,7 +75,9 @@ export function BookmarkMoodboardView({
   displayPreferences,
   bookmarks,
   folders,
+  contextFolderId,
   activeColumnCount,
+  gap,
   selectedBookmarkIds,
   onToggleSelect,
   onSelectTag,
@@ -100,6 +106,7 @@ export function BookmarkMoodboardView({
         displayPreferences={displayPreferences}
         bookmark={bookmark}
         folders={folders}
+        contextFolderId={contextFolderId}
         onSelectTag={onSelectTag}
         onToggleFavorite={onToggleFavorite}
         onToggleArchive={onToggleArchive}
@@ -124,7 +131,7 @@ export function BookmarkMoodboardView({
   const content = (
     <>
       <SortableContent withoutSlot>
-        <Masonry columnCount={activeColumnCount} gap={displayPreferences?.density === "visual" ? 20 : 12} linear virtualize={false}>
+        <Masonry columnCount={activeColumnCount} gap={gap ?? (displayPreferences?.density === "visual" ? 20 : 12)} linear virtualize={false}>
           {bookmarks.map((bookmark) => (
             <MasonryItem key={bookmark.id}>
               <SortableItem

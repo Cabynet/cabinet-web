@@ -1,23 +1,22 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { adjacentPreviewBookmark, moodboardColumnCount } from "../src/lib/bookmark-view.ts"
+import { adjacentPreviewBookmark, moodboardColumnCount, moodboardGap } from "../src/lib/bookmark-view.ts"
 
-test("masonry adapts to container width with responsive breakpoints up to 4 columns", () => {
-  for (const [width, expected] of [
-    [320, 1],
-    [479, 1],
-    [480, 2],
-    [767, 2],
-    [768, 3],
-    [1023, 3],
-    [1024, 4],
-    [1400, 4],
-  ]) {
-    assert.equal(moodboardColumnCount(width), expected)
+test("masonry columns follow container width and density", () => {
+  // Comfortable keeps cards at least ~300px wide.
+  for (const [width, expected] of [[320, 1], [479, 1], [600, 1], [767, 2], [1023, 3], [1132, 3], [1400, 4], [2000, 5]]) {
+    assert.equal(moodboardColumnCount(width, "comfortable"), expected, `comfortable ${width}`)
+  }
+  // Compact and Visual fit two columns on phones and four at a 1440px window with the sidebar open.
+  for (const density of ["compact", "visual"]) {
+    assert.equal(moodboardColumnCount(358, density), 2, `${density} phone`)
+    assert.equal(moodboardColumnCount(1132, density), 4, `${density} desktop`)
   }
   // Opening the inspector reduces container width without changing the viewport.
   assert.equal(moodboardColumnCount(1000), 3)
-  assert.equal(moodboardColumnCount(552), 2)
+  assert.equal(moodboardColumnCount(0), 4)
+  assert.equal(moodboardGap(358, "visual"), 12)
+  assert.equal(moodboardGap(1132, "visual"), 20)
 })
 
 test("preview navigation follows displayed order, skips notes, and stops at boundaries", () => {

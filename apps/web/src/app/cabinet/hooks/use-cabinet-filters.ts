@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import {
   defaultDisplayPreferences,
+  deviceDefaultDisplayPreferences,
   type DisplayPreferences,
 } from "../components/display-preferences"
 import type { MobileTab } from "../components/mobile-bottom-nav"
@@ -195,11 +196,13 @@ export function useCabinetFilters(folders: { id: string; name: string }[]) {
     }
 
     const savedPreferences = localStorage.getItem("cabinet_display_preferences")
+    const deviceDefaults = deviceDefaultDisplayPreferences()
+    if (!savedPreferences && deviceDefaults !== defaultDisplayPreferences) setDisplayPreferences(deviceDefaults)
     if (savedPreferences) {
       try {
         const parsed = JSON.parse(savedPreferences)
         if (typeof parsed === "object" && parsed !== null) {
-          setDisplayPreferences({ ...defaultDisplayPreferences, ...parsed })
+          setDisplayPreferences({ ...deviceDefaults, ...parsed })
         }
       } catch {
         localStorage.removeItem("cabinet_display_preferences")

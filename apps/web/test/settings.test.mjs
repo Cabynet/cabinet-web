@@ -76,8 +76,9 @@ test("SettingsPage renders with all major configuration sections", () => {
   // Active appearance tab content
   assert.match(html, /Theme/)
   assert.match(html, /Layout &amp; density|Layout & density/)
-  assert.match(html, /Visible details/)
-  assert.match(html, /Preview image/)
+  // Visible details belong to Compact; the default Comfortable density hides them.
+  assert.doesNotMatch(html, /Visible details/)
+  assert.match(html, /Choose Compact to pick which details appear/)
   assert.match(html, /Comfortable/)
   assert.match(html, /Compact/)
   assert.match(html, />Visual</)

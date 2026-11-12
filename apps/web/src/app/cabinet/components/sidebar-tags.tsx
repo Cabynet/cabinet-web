@@ -58,7 +58,7 @@ export function SidebarTags({ tags, selectedTag, onSelectTag, onCreateTag, onDel
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Tags</SidebarGroupLabel>
-      <SidebarGroupAction title="Create tag" aria-label="Create tag" onClick={onCreateTag}>
+      <SidebarGroupAction title="Create tag" aria-label="Create tag" onClick={onCreateTag} className="top-3 right-2.5 w-7">
         <Plus />
       </SidebarGroupAction>
       <SidebarGroupContent>
@@ -78,7 +78,9 @@ export function SidebarTags({ tags, selectedTag, onSelectTag, onCreateTag, onDel
                     onClick={() => select(tag.name)}
                   >
                     <TagIcon className="size-4" />
-                    <span>{tag.name}</span>
+                    <span className="truncate">{tag.name}</span>
+                    {/* Gives way to the actions button when the row is hovered or focused. */}
+                    {(tag.bookmarkCount ?? 0) > 0 && <span className="ml-auto hidden text-xs tabular-nums text-muted-foreground/80 md:inline md:group-hover/menu-item:opacity-0 md:group-focus-within/menu-item:opacity-0">{tag.bookmarkCount}</span>}
                   </SidebarMenuButton>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

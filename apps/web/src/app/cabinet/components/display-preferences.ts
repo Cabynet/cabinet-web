@@ -29,3 +29,16 @@ export const defaultDisplayPreferences: DisplayPreferences = {
   showFolder: true,
   showDate: true,
 }
+
+/** Only Compact lets people pick which details show; the other densities have a fixed layout. */
+export const hasVisibleDetails = (density: Density) => density === "compact"
+
+/** The preferences cards actually render with: visibility choices apply in Compact only, and are kept for when it's chosen again. */
+export const effectiveDisplayPreferences = (preferences: DisplayPreferences): DisplayPreferences =>
+  hasVisibleDetails(preferences.density) ? preferences : { ...defaultDisplayPreferences, density: preferences.density }
+
+/** Phones start in Compact (two columns) so more of the library fits on screen; a saved choice always wins. */
+export const deviceDefaultDisplayPreferences = (): DisplayPreferences =>
+  typeof window !== "undefined" && window.matchMedia?.("(max-width: 639px)").matches
+    ? { ...defaultDisplayPreferences, density: "compact" }
+    : defaultDisplayPreferences

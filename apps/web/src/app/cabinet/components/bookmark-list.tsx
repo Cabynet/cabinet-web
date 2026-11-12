@@ -20,7 +20,7 @@ import { BookmarkActionSheet } from "./bookmark-action-sheet"
 import { BookmarkWebview } from "./bookmark-webview"
 import { BookmarkInspector, type BookmarkInspectorHandle } from "./bookmark-inspector"
 import type { DisplayPreferences } from "./display-preferences"
-import { adjacentPreviewBookmark, moodboardColumnCount } from "@/lib/bookmark-view"
+import { adjacentPreviewBookmark, moodboardColumnCount, moodboardGap } from "@/lib/bookmark-view"
 import { editorPath } from "@/lib/bookmark-kind"
 
 // Module-level so memoized cards receive the same function on every render.
@@ -195,7 +195,8 @@ export function BookmarkList({
     return () => observer.disconnect()
   }, [])
 
-  const activeColumnCount = moodboardColumnCount(containerWidth)
+  const activeColumnCount = moodboardColumnCount(containerWidth, displayPreferences.density)
+  const activeGap = moodboardGap(containerWidth, displayPreferences.density)
 
   const getHeaderTitle = () => {
     if (isTrashView) {
@@ -283,6 +284,8 @@ export function BookmarkList({
         {!isDuplicatesView ? (
           <div className="flex flex-wrap items-center justify-between gap-2.5 pt-0.5">
             {onFormatFilterChange && !isTrashView && (
+              // Scrolls sideways on phones; the fade hints that more formats sit past the edge.
+              <div className="min-w-0 max-w-full overflow-x-auto [scrollbar-width:none] max-sm:[mask-image:linear-gradient(to_right,#000_82%,transparent)] max-sm:pr-6 [&::-webkit-scrollbar]:hidden">
               <ToggleGroup
                 type="single"
                 value={formatFilter}
@@ -291,7 +294,7 @@ export function BookmarkList({
                 }}
                 spacing={0}
                 variant="outline"
-                className="overflow-hidden rounded-md border border-border bg-card"
+                className="w-max overflow-hidden rounded-md border border-border bg-card"
                 aria-label="Filter by format"
               >
                 <ToggleGroupItem value="all" className="h-8 px-2.5 text-xs font-medium" aria-label="All formats">
@@ -318,6 +321,7 @@ export function BookmarkList({
                   <span>PDFs</span>
                 </ToggleGroupItem>
               </ToggleGroup>
+              </div>
             )}
 
             <div className="flex items-center gap-2 ml-auto">
@@ -538,6 +542,8 @@ export function BookmarkList({
           ) : (
             <BookmarkMoodboardView
               onTogglePin={onTogglePin}
+              contextFolderId={selectedFolderId}
+              gap={activeGap}
               sortableInParent={sortableInParent}
               displayPreferences={displayPreferences}
               bookmarks={bookmarks}

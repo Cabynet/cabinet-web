@@ -5,10 +5,11 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
 import { useQueryClient } from "@tanstack/react-query"
-import { ArrowLeft, PaintBrush, User, Database, Wrench, Keyboard, Sun, Moon, Desktop, DownloadSimple, UploadSimple, SignOut, Trash, ArrowCounterClockwise, Hash as Tag } from "@phosphor-icons/react"
+import { PaintBrush, User, Database, Wrench, Keyboard, Sun, Moon, Desktop, DownloadSimple, UploadSimple, SignOut, Trash, ArrowCounterClockwise, Hash as Tag } from "@phosphor-icons/react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { PageHeader, PageShell } from "@/components/page-header"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Switch } from "@/components/ui/switch"
 import { Spinner } from "@/components/ui/spinner"
@@ -17,7 +18,7 @@ import { useConfirm } from "@/hooks/use-confirm"
 import { authClient } from "@/lib/auth-client"
 import { bookmarkFromApi } from "@/lib/api-model"
 import { AXIOS_INSTANCE, useFoldersControllerFindAll, useBookmarksControllerGetHealthSummary, useBookmarksControllerFindAll, useBookmarksControllerGetDuplicates, useBookmarksControllerCleanDuplicates, useBookmarksControllerTriggerHealthCheck, useBookmarksControllerImport } from "@/lib/api-client"
-import { defaultDisplayPreferences, densityOptions, isDensity, type DisplayPreferences } from "../components/display-preferences"
+import { defaultDisplayPreferences, densityOptions, deviceDefaultDisplayPreferences, hasVisibleDetails, isDensity, type DisplayPreferences } from "../components/display-preferences"
 import { MoodboardCard } from "../components/bookmark-moodboard-view"
 import { TagsSettings } from "./tags-settings"
 import { DeleteAccount } from "./account-settings"
@@ -80,7 +81,8 @@ export default function SettingsPage() {
     setMounted(true)
     try {
       const parsed = JSON.parse(localStorage.getItem("cabinet_display_preferences") || "null")
-      if (typeof parsed === "object" && parsed !== null) setDisplayPrefs({ ...defaultDisplayPreferences, ...parsed })
+      const deviceDefaults = deviceDefaultDisplayPreferences()
+      setDisplayPrefs(typeof parsed === "object" && parsed !== null ? { ...deviceDefaults, ...parsed } : deviceDefaults)
     } catch {
       // Ignore corrupted or inaccessible local storage
       return
@@ -162,16 +164,10 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-6xl flex-col gap-8 px-4 py-6 sm:px-8 sm:py-10">
-      <header className="flex flex-col gap-6">
-        <Link href="/cabinet" className="inline-flex min-h-11 w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft />Back to Cabinet</Link>
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div className="flex flex-col gap-2"><h1 className="text-2xl font-semibold tracking-tight">Settings</h1><p className="text-sm text-muted-foreground">Make Cabinet feel like your own library.</p></div>
-          <p role="status" className="text-xs text-muted-foreground">{preferenceStatus}</p>
-        </div>
-      </header>
+    <PageShell wide>
+      <PageHeader title="Settings" description="Make Cabinet feel like your own library." actions={<p role="status" className="text-xs text-muted-foreground">{preferenceStatus}</p>} />
       <Tabs value={tab} onValueChange={changeTab} className="flex flex-col gap-8">
-        <TabsList variant="line" className="h-auto w-full flex-wrap justify-start gap-2 border-b border-border/60 pb-px sm:gap-4">
+        <TabsList variant="line" className="h-auto w-full justify-start gap-2 group-data-horizontal/tabs:h-auto overflow-x-auto overflow-y-hidden border-b border-border/60 pb-[5px] [scrollbar-width:none] sm:gap-4 [&::-webkit-scrollbar]:hidden">
           {([ ["appearance", "Appearance", PaintBrush], ["account", "Account", User], ["data", "Data & Export", Database], ["tags", "Tags", Tag], ["maintenance", "Maintenance", Wrench], ["shortcuts", "Shortcuts", Keyboard] ] as const).map(([value, label, Icon]) => <TabsTrigger key={value} value={value} className="min-h-11 shrink-0 gap-2 text-sm"><Icon />{label}</TabsTrigger>)}
         </TabsList>
         <TabsContent value="appearance" className="grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_260px]">
@@ -186,17 +182,17 @@ export default function SettingsPage() {
               <ToggleGroup type="single" variant="outline" value={displayPrefs.density} onValueChange={(value) => { if (isDensity(value)) handlePrefToggle("density", value) }} aria-label="Density">
                 {densityOptions.map((option) => <ToggleGroupItem key={option.value} value={option.value} className="min-h-11">{option.label}</ToggleGroupItem>)}
               </ToggleGroup>
-              <p className="text-xs text-muted-foreground">Visual shows previews edge to edge with just the title, like a gallery.</p>
+              <p className="text-xs text-muted-foreground">Visual shows previews edge to edge with just the title, like a gallery. Choose Compact to pick which details appear on cards.</p>
             </div>
           </SettingsSection>
-          <SettingsSection title="Visible details" description="Keep the details you use and hide the rest. Your saved content is never changed.">
+          {hasVisibleDetails(displayPrefs.density) && <SettingsSection title="Visible details" description="Keep the details you use and hide the rest. Your saved content is never changed.">
             <div className="flex flex-col divide-y divide-border/70">
               {([ ["showImage", "Preview image", "The website preview, when available."], ["showTitle", "Title", "The saved or custom title."], ["showDescription", "Description", "A short excerpt below the title."], ["showWebsite", "Website", "The original website domain."], ["showFolder", "Folder", "Where the item is filed."], ["showDate", "Date added", "When you saved the item."] ] as const).map(([key, label, description]) => <div key={key} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
                 <div className="flex flex-col gap-1"><label htmlFor={key} className="cursor-pointer text-sm font-medium">{label}</label><p id={`${key}-description`} className="text-xs text-muted-foreground">{description}</p></div>
                 <Switch id={key} aria-describedby={`${key}-description`} checked={displayPrefs[key]} onCheckedChange={(value) => handlePrefToggle(key, value)} />
               </div>)}
             </div>
-          </SettingsSection>
+          </SettingsSection>}
           </div>
           <aside aria-label="Display preview" className="flex flex-col gap-3 xl:sticky xl:top-8">
             <h2 className="text-base font-medium">Display preview</h2>
@@ -221,9 +217,9 @@ export default function SettingsPage() {
           <SettingsSection title="Import bookmarks" description="Bring an HTML bookmarks export into Cabinet. Folders are preserved and previews are fetched in the background.">
             <label className="relative w-fit rounded-md has-focus-visible:outline-2 has-focus-visible:outline-ring"><span className="flex min-h-11 items-center gap-2 rounded-md border border-input px-4 text-sm">{isImporting ? <Spinner /> : <UploadSimple />}{isImporting ? "Queuing import…" : "Choose HTML file"}</span><input type="file" accept=".html" aria-label="Choose HTML file to import" onChange={handleImportFile} disabled={isImporting} className="absolute inset-0 size-full cursor-pointer opacity-0" /></label>
             <p className="text-xs text-muted-foreground">
-              Butuh panduan ekspor langkah demi langkah dari Chrome, Safari, atau Raindrop?{" "}
+              Need step-by-step export instructions for Chrome, Safari, or Raindrop?{" "}
               <Link href="/cabinet/integrations" className="text-foreground underline underline-offset-4 hover:text-primary">
-                Buka panduan integrasi lengkap &amp; alur visual →
+                See the full integrations guide →
               </Link>
             </p>
           </SettingsSection>
@@ -259,6 +255,6 @@ export default function SettingsPage() {
         </TabsContent>
       </Tabs>
       <footer className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border pt-6 text-xs text-muted-foreground"><span className="font-serif text-xl text-foreground">Cabinet</span><span>A personal place for what you want to keep.</span></footer>
-    </main>
+    </PageShell>
   )
 }
