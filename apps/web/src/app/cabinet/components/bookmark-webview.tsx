@@ -501,10 +501,13 @@ export function BookmarkWebview({
                   </div>
                 )}
                 {showFrame && (
-                  <div className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b px-3 py-2 text-xs text-muted-foreground">
-                    {status === "loading" && <span role="status" className="flex items-center gap-2"><Spinner aria-hidden="true" /> Loading website…</span>}
+                  <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground">
+                    {status === "loading" ? <span role="status" className="flex items-center gap-2"><Spinner aria-hidden="true" /> Loading website…</span> : <span>Live page</span>}
                     {/* Cross-origin frames can report a load even when their content is blank. */}
-                    <Button variant="link" size="xs" onClick={() => setShowSummary(true)}>Show saved details instead</Button>
+                    <span className="flex items-center gap-1">
+                      <span className="hidden sm:inline">Page blank or blocked?</span>
+                      <Button variant="link" size="xs" className="h-auto px-0 text-foreground" onClick={() => setShowSummary(true)}>Show saved details instead</Button>
+                    </span>
                   </div>
                 )}
                 {website && showReference && (
