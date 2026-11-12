@@ -40,6 +40,7 @@ try {
   await search.press("Escape")
   await expect(page.getByRole("dialog", { name: "New bookmark", exact: true })).toBeVisible()
 
+  await page.getByRole("button", { name: "Add title, description, or tags", exact: true }).click()
   const input = page.getByRole("combobox", { name: "Tags", exact: true })
   await input.fill("design")
   await page.getByRole("option", { name: "#design", exact: true }).click()
@@ -76,6 +77,7 @@ try {
   }
   await page.goto(`${url}/?empty=1`)
   await expect(page.getByRole("combobox", { name: "Folder", exact: true })).toHaveCount(0)
+  await page.getByRole("button", { name: "Add title, description, or tags", exact: true }).click()
   await expect(page.getByRole("combobox", { name: "Tags", exact: true })).toBeVisible()
   await page.goto(`${url}/?parent=1`)
   await page.getByRole("combobox", { name: "Parent Folder (optional)", exact: true }).click()

@@ -146,7 +146,7 @@ try {
   assert.equal(await paste('https://example.org/new-reference#chapter'), false)
   await expect(page.getByText('Saved: Pasted reference', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Edit', exact: true }).last().click()
-  await page.getByRole('textbox', { name: 'Title (Optional)', exact: true }).fill('Edited pasted reference')
+  await page.getByRole('textbox', { name: 'Title', exact: true }).fill('Edited pasted reference')
   await page.getByRole('combobox', { name: 'Folder', exact: true }).click()
   await page.getByRole('option', { name: 'None (Root)', exact: true }).click()
   await page.getByRole('button', { name: 'Save bookmark', exact: true }).click()
