@@ -174,3 +174,17 @@
     -moz-appearance: textfield;
   }
 }
+/* Excalidraw ships a violet accent; map it to Cabinet's neutral tokens so the drawing editor matches the app. */
+.cabinet-drawing .excalidraw,
+.cabinet-drawing .excalidraw.theme--dark {
+  --color-primary: var(--primary);
+  --color-primary-darker: color-mix(in oklab, var(--primary) 88%, var(--foreground));
+  --color-primary-darkest: color-mix(in oklab, var(--primary) 76%, var(--foreground));
+  --color-primary-hover: color-mix(in oklab, var(--primary) 88%, var(--background));
+  --color-primary-light: var(--muted);
+  --color-primary-light-darker: var(--accent);
+  --color-surface-primary-container: var(--accent);
+  --color-on-primary-container: var(--accent-foreground);
+  --color-brand-hover: color-mix(in oklab, var(--primary) 88%, var(--background));
+  --color-brand-active: color-mix(in oklab, var(--primary) 76%, var(--background));
+}

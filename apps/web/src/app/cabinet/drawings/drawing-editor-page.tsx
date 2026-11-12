@@ -10,6 +10,7 @@ import { ArrowLeft, FolderSimple } from "@phosphor-icons/react"
 import { AXIOS_INSTANCE, getBookmark, useFoldersControllerFindAll } from "@/lib/api-client"
 import { authClient } from "@/lib/auth-client"
 import { NoteAutosave, type NoteSaveStatus } from "@/lib/note-autosave"
+import { cn } from "@/lib/utils"
 import { canAddToFolder } from "@/lib/folder-roles"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -205,11 +206,40 @@ function DrawingCanvas({ drawingId, initial }: { drawingId: string; initial: Loa
 
   return (
     <main className="flex h-dvh flex-col bg-background text-foreground">
-      <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-3 sm:px-4">
-        <Button variant="ghost" size="sm" onClick={leave} title={currentFolder ? `Back to ${currentFolder.name}` : "Back to Cabinet"}>
-          <ArrowLeft data-icon="inline-start" />
-          <span className="hidden max-w-32 truncate sm:inline">{currentFolder ? currentFolder.name : "Cabinet"}</span>
+      <header className="flex h-14 shrink-0 items-center gap-1 border-b border-border px-2 sm:gap-2 sm:px-6">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-11 shrink-0 sm:size-9"
+          onClick={leave}
+          aria-label={currentFolder ? `Back to ${currentFolder.name}` : "Back to Cabinet"}
+          title={currentFolder ? `Back to ${currentFolder.name}` : "Back to Cabinet"}
+        >
+          <ArrowLeft />
         </Button>
+        {access === "owner" && (
+          <Select
+            value={folderId || "__root__"}
+            onValueChange={(value) => {
+              const next = value === "__root__" ? undefined : value
+              setFolderId(next)
+              schedule({ folderId: next })
+            }}
+          >
+            <SelectTrigger size="sm" aria-label="Drawing folder" className="hidden h-9 max-w-xs gap-1.5 border-none bg-muted/40 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground sm:flex">
+              <FolderSimple className="size-3.5 shrink-0" />
+              <SelectValue placeholder="Unfiled" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value="__root__">Unfiled</SelectItem>
+                {folders.filter((folder) => canAddToFolder(folder) || folder.id === folderId).map((folder) => (
+                  <SelectItem key={folder.id} value={folder.id}>{folder.name}</SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        )}
         <input
           aria-label="Drawing title"
           placeholder="Untitled drawing"
@@ -225,37 +255,14 @@ function DrawingCanvas({ drawingId, initial }: { drawingId: string; initial: Loa
               event.currentTarget.blur()
             }
           }}
-          className="h-8 min-w-0 flex-1 rounded-md bg-transparent px-2 text-base font-medium outline-none placeholder:text-muted-foreground hover:bg-muted/50 focus-visible:bg-muted/50 sm:max-w-md sm:text-sm"
+          className="h-9 min-w-0 flex-1 rounded-md bg-transparent px-2 text-base font-medium outline-none placeholder:text-muted-foreground hover:bg-muted/50 focus-visible:bg-muted/50 sm:text-sm"
         />
-        {access === "owner" && (
-          <Select
-            value={folderId || "__root__"}
-            onValueChange={(value) => {
-              const next = value === "__root__" ? undefined : value
-              setFolderId(next)
-              schedule({ folderId: next })
-            }}
-          >
-            <SelectTrigger size="sm" aria-label="Drawing folder" className="hidden h-8 gap-1.5 border-none bg-transparent text-xs text-muted-foreground shadow-none hover:bg-muted hover:text-foreground sm:flex dark:bg-transparent">
-              <FolderSimple className="size-3.5 shrink-0" />
-              <SelectValue placeholder="Unfiled" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectItem value="__root__">Unfiled</SelectItem>
-                {folders.filter((folder) => canAddToFolder(folder) || folder.id === folderId).map((folder) => (
-                  <SelectItem key={folder.id} value={folder.id}>{folder.name}</SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        )}
-        <span className="ml-auto shrink-0 text-xs text-muted-foreground" role="status" aria-live="polite">{statusText}</span>
+        <span className={cn("shrink-0 whitespace-nowrap text-xs", status === "error" ? "text-destructive" : "text-muted-foreground", status === "saved" && access !== "viewer" && "sr-only sm:not-sr-only")} role="status" aria-live="polite">{statusText}</span>
         {status === "error" && (
           <Button variant="outline" size="sm" onClick={() => void autosave.current?.flush()}>Retry</Button>
         )}
       </header>
-      <div className="relative min-h-0 flex-1">
+      <div className="cabinet-drawing relative min-h-0 flex-1">
         <Excalidraw
           initialData={initialData}
           onChange={handleChange}

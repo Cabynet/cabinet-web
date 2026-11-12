@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { useIsomorphicLayoutEffect } from "@/hooks/use-isomorphic-layout-effect"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { ArrowLeft, FolderSimple, Hash as Tag } from "@phosphor-icons/react"
@@ -18,7 +19,6 @@ import {
   SelectGroup,
   SelectItem,
 } from "@/components/ui/select"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { authClient } from "@/lib/auth-client"
 import { AXIOS_INSTANCE, getBookmark, useFoldersControllerFindAll } from "@/lib/api-client"
 import {
@@ -28,6 +28,7 @@ import {
 } from "@/lib/note-autosave"
 import { isTiptapDocument, legacyNoteToDocument, parseNoteDraft, tiptapToDocument } from "@/lib/note-document"
 import { canAddToFolder } from "@/lib/folder-roles"
+import { cn } from "@/lib/utils"
 
 function readDraft(key: string) {
   try {
@@ -192,6 +193,14 @@ function NoteCanvas({
   const { data: foldersData } = useFoldersControllerFindAll()
   const folders = foldersData || []
   const [title, setTitle] = useState(initial.title)
+  const titleRef = useRef<HTMLTextAreaElement>(null)
+  // Grow the title field with its text so long titles wrap instead of scrolling sideways.
+  useIsomorphicLayoutEffect(() => {
+    const field = titleRef.current
+    if (!field) return
+    field.style.height = "auto"
+    field.style.height = `${field.scrollHeight}px`
+  }, [title])
   const [tags, setTags] = useState<string[]>(initial.tags ?? [])
   const [selectedFolderId, setSelectedFolderId] = useState<string | undefined>(initial.folderId)
   const [hasSaved, setHasSaved] = useState(initiallySaved)
@@ -292,14 +301,38 @@ function NoteCanvas({
   }
 
   const currentFolder = folders.find((f: any) => f.id === selectedFolderId)
+  const statusText = access === "viewer"
+    ? "View only"
+    : status === "conflict"
+    ? "Conflicting changes"
+    : status === "offline"
+    ? "Waiting to sync"
+    : status === "saving"
+    ? "Saving…"
+    : status === "unsaved"
+      ? "Unsaved changes"
+      : status === "error"
+        ? "Save failed"
+        : hasSaved
+          ? "All changes saved"
+          : "Start writing to save"
+  const quietStatus = access !== "viewer" && !["conflict", "offline", "error"].includes(status)
 
   return (
     <main className="min-h-[100dvh] bg-background text-foreground">
-      <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border bg-background px-4 py-3 sm:px-8">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={leave} title={currentFolder ? `Back to ${currentFolder.name}` : "Back to Cabinet"}>
-            <ArrowLeft data-icon="inline-start" />
-            <span className="max-w-32 truncate sm:max-w-xs">{currentFolder ? currentFolder.name : "Cabinet"}</span>
+      <header className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-border bg-background px-2 py-2 sm:gap-3 sm:px-6">
+        <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+          <Button
+            variant="ghost"
+            size={access === "owner" ? "icon" : "sm"}
+            className={access === "owner" ? "size-11 shrink-0 sm:size-9" : "min-h-11 min-w-0 sm:min-h-9"}
+            onClick={leave}
+            aria-label={currentFolder ? `Back to ${currentFolder.name}` : "Back to Cabinet"}
+            title={currentFolder ? `Back to ${currentFolder.name}` : "Back to Cabinet"}
+          >
+            <ArrowLeft data-icon={access === "owner" ? undefined : "inline-start"} />
+            {/* The folder picker already names the folder, so only show it here when the picker is hidden. */}
+            {access !== "owner" && <span className="max-w-32 truncate sm:max-w-xs">{currentFolder ? currentFolder.name : "Cabinet"}</span>}
           </Button>
 
           {access === "owner" && <Select
@@ -310,7 +343,7 @@ function NoteCanvas({
               update({ ...current.current, folderId: next })
             }}
           >
-            <SelectTrigger size="sm" aria-label="Note folder" className="h-8 gap-1.5 border-none bg-muted/40 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
+            <SelectTrigger size="sm" aria-label="Note folder" className="h-9 min-w-0 max-w-44 gap-1.5 border-none bg-muted/40 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground sm:max-w-xs">
               <FolderSimple className="size-3.5 shrink-0" />
               <SelectValue placeholder="Unfiled" />
             </SelectTrigger>
@@ -327,27 +360,14 @@ function NoteCanvas({
           </Select>}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           <span
-            className="text-xs text-muted-foreground"
+            // Routine states stay announced but only take up room on wider screens.
+            className={cn("whitespace-nowrap text-xs", quietStatus ? "sr-only sm:not-sr-only text-muted-foreground" : status === "error" || status === "conflict" ? "text-destructive" : "text-muted-foreground")}
             role="status"
             aria-live="polite"
           >
-            {access === "viewer"
-              ? "View only"
-              : status === "conflict"
-              ? "Conflicting changes"
-              : status === "offline"
-              ? "Waiting to sync"
-              : status === "saving"
-              ? "Saving..."
-              : status === "unsaved"
-                ? "Unsaved changes"
-                : status === "error"
-                  ? "Save failed"
-                  : hasSaved
-                    ? "All changes saved"
-                    : "Start writing to save"}
+            {statusText}
           </span>
           {(status === "error" || status === "offline") && (
             <Button
@@ -359,7 +379,6 @@ function NoteCanvas({
             </Button>
           )}
           <div id="note-header-actions" className="flex items-center" />
-          <ThemeToggle />
         </div>
       </header>
       <div className="mx-auto max-w-5xl px-6 pt-12 pb-32 sm:px-12 sm:pt-20">
@@ -414,7 +433,9 @@ function NoteCanvas({
             changes are saved.
           </p>
         )}
-        <input
+        <textarea
+          ref={titleRef}
+          rows={1}
           aria-label="Note title"
           placeholder="Untitled"
           autoFocus={!initiallySaved}
@@ -429,13 +450,14 @@ function NoteCanvas({
           disabled={!!draft}
           readOnly={access === "viewer"}
           onChange={(event) => {
-            setTitle(event.target.value)
-            update({ ...current.current, title: event.target.value })
+            const next = event.target.value.replace(/\n/g, " ")
+            setTitle(next)
+            update({ ...current.current, title: next })
           }}
-          className="mb-3 w-full border-0 bg-transparent p-0 pl-8 text-3xl font-semibold tracking-tight text-foreground outline-none placeholder:text-muted-foreground sm:text-4xl"
+          className="mb-3 block w-full resize-none overflow-hidden break-words border-0 bg-transparent p-0 pl-4 text-3xl leading-tight md:pl-12 font-semibold tracking-tight text-foreground outline-none placeholder:text-muted-foreground sm:text-4xl"
         />
         {/* Tags are personal to the note's author. */}
-        {access === "owner" ? <div className="mb-8 flex items-center gap-2 pl-8 text-sm text-muted-foreground">
+        {access === "owner" ? <div className="mb-8 flex items-center gap-2 pl-4 text-sm text-muted-foreground md:pl-12">
           <Tag className="size-4 shrink-0" aria-hidden="true" />
           <TagsInput
             value={tags}
