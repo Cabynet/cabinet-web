@@ -195,8 +195,8 @@ export function BookmarkList({
     return () => observer.disconnect()
   }, [])
 
-  const activeColumnCount = moodboardColumnCount(containerWidth, displayPreferences.density)
-  const activeGap = moodboardGap(containerWidth, displayPreferences.density)
+  const activeColumnCount = moodboardColumnCount(containerWidth, displayPreferences?.density)
+  const activeGap = moodboardGap(containerWidth, displayPreferences?.density)
 
   const getHeaderTitle = () => {
     if (isTrashView) {

@@ -67,26 +67,26 @@ test("IntegrationsPage renders with illustrations, guides, and dropzone", () => 
   assert.match(html, /Back to Cabinet/)
 
   // Interactive dropzone & action buttons
-  assert.match(html, /Tarik dan lepas berkas HTML bookmark ke sini/)
-  assert.match(html, /Pilih Berkas HTML/)
-  assert.match(html, /Ekspor dari Cabinet/)
+  assert.match(html, /Drag and drop an HTML bookmarks file here/)
+  assert.match(html, /Choose HTML file/)
+  assert.match(html, /Export from Cabinet/)
 
   // Pipeline diagram
-  assert.match(html, /Alur Kerja Impor &amp; Ekspor|Alur Kerja Impor & Ekspor/)
-  assert.match(html, /Berkas HTML Standar/)
-  assert.match(html, /Perpustakaan Cabinet/)
+  assert.match(html, /How import &amp; export work|How import & export work/)
+  assert.match(html, /Standard HTML file/)
+  assert.match(html, /Your Cabinet library/)
 
   // Platform Guides
   assert.match(html, /Google Chrome/)
   assert.match(html, /Apple Safari/)
   assert.match(html, /Raindrop\.io/)
   assert.match(html, /Arc &amp; Brave|Arc & Brave/)
-  assert.match(html, /Ekstensi 1-Klik/)
+  assert.match(html, /1-click extension/)
 
   // Illustrations & Content
   assert.match(html, /chrome:\/\/bookmarks/)
-  assert.match(html, /Struktur Folder Terjaga/)
-  assert.match(html, /Pratinjau Gambar Otomatis/)
+  assert.match(html, /Folder structure preserved/)
+  assert.match(html, /Automatic previews/)
 
   // Dedicated illustrations
   const safariHtml = renderToStaticMarkup(React.createElement(SafariExportIllustration))
