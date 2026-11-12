@@ -305,7 +305,7 @@ export function CabinetSidebarFilters({
                   resetFolderForm()
                   setIsFolderModalOpen(true)
                 }}
-                className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
                 title="Create folder"
                 aria-label="Create folder"
               >
@@ -432,7 +432,7 @@ export function CabinetSidebarFilters({
                   className="flex cursor-pointer items-center gap-2 text-xs"
                 >
                   <PlugsConnected className="size-3.5" />
-                  <span>Integrations &amp; Import</span>
+                  <span>Integrations &amp; import</span>
                 </Link>
               </DropdownMenuItem>
 

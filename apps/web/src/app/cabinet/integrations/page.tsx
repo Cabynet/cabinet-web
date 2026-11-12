@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react"
 import Link from "next/link"
 import { useQueryClient } from "@tanstack/react-query"
 import {
-  ArrowLeft,
   UploadSimple,
   DownloadSimple,
   GoogleChromeLogo,
@@ -16,6 +15,7 @@ import {
   Compass,
 } from "@phosphor-icons/react"
 import { Button } from "@/components/ui/button"
+import { PageHeader, PageShell } from "@/components/page-header"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Spinner } from "@/components/ui/spinner"
@@ -46,12 +46,12 @@ export default function IntegrationsPage() {
   const handleImportFile = async (file?: File | null) => {
     if (!file || isImporting) return
     if (!file.name.toLowerCase().endsWith(".html") && !file.name.toLowerCase().endsWith(".htm")) {
-      toast.error("Pilih berkas HTML bookmark standar (misal: bookmarks.html).")
+      toast.error("Choose a standard HTML bookmarks file (e.g. bookmarks.html).")
       return
     }
 
     setIsImporting(true)
-    const toastId = toast.loading(`Mengimpor "${file.name}" ke Cabinet...`)
+    const toastId = toast.loading(`Importing "${file.name}" into Cabinet…`)
     try {
       const htmlContent = await readBookmarkImport(file)
       const res: any = await importMutation.mutateAsync({ data: { htmlContent } })
@@ -59,11 +59,11 @@ export default function IntegrationsPage() {
         queryClient.invalidateQueries({ queryKey })
       }
       const task = res?.data ?? res
-      if (!task?.id) throw new Error("Server tidak mengembalikan status impor.")
+      if (!task?.id) throw new Error("The server didn't return an import status.")
       setQueuedTask(task.id)
-      toast.success("Impor masuk antrean. Anda boleh meninggalkan halaman ini.", { id: toastId })
+      toast.success("Import queued. You can leave this page.", { id: toastId })
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Gagal memulai impor. Pastikan format berkas valid.", { id: toastId })
+      toast.error(error instanceof Error ? error.message : "Couldn't start the import. Check that the file is a valid bookmarks export.", { id: toastId })
     } finally {
       setIsImporting(false)
     }
@@ -81,39 +81,26 @@ export default function IntegrationsPage() {
       a.click()
       a.remove()
       URL.revokeObjectURL(url)
-      toast.success("Berkas bookmark HTML berhasil diunduh.")
+      toast.success("HTML bookmarks file downloaded.")
     } catch {
-      toast.error("Gagal mengekspor bookmark.")
+      toast.error("Couldn't export bookmarks.")
     } finally {
       setIsExporting(false)
     }
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-5xl flex-col gap-8 px-4 py-6 sm:px-8 sm:py-10">
-      {/* Navigation Header */}
-      <header className="flex flex-col gap-5 border-b border-border/80 pb-6">
-        <Link
-          href="/cabinet"
-          className="inline-flex min-h-10 w-fit items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ArrowLeft /> Kembali ke Cabinet
-        </Link>
-        <div className="flex flex-col gap-2">
-          <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-            Integrations &amp; Connections
-          </h1>
-          <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-            Panduan lengkap memindahkan bookmark dari Google Chrome, Apple Safari, Raindrop, dan browser lainnya ke Cabinet tanpa kehilangan struktur folder.
-          </p>
-        </div>
-      </header>
+    <PageShell>
+      <PageHeader
+        title="Integrations & import"
+        description="Move your bookmarks from Google Chrome, Apple Safari, Raindrop, and other browsers into Cabinet without losing your folder structure."
+      />
 
-      {queuedTask && <Alert><AlertTitle>Impor sedang diproses di latar belakang</AlertTitle><AlertDescription>Bookmark yang sudah tersimpan tetap aman jika proses perlu diulang.</AlertDescription></Alert>}
+      {queuedTask && <Alert><AlertTitle>Import running in the background</AlertTitle><AlertDescription>Bookmarks already saved stay safe if the import needs to be retried.</AlertDescription></Alert>}
       {/* Direct Interactive Dropzone Area */}
       <section aria-labelledby="quick-import-heading" className="flex flex-col gap-3">
         <h2 id="quick-import-heading" className="text-base font-medium text-foreground">
-          Impor Berkas Bookmark Sekarang
+          Import a bookmarks file
         </h2>
         <div
           onDragOver={(e) => {
@@ -138,10 +125,10 @@ export default function IntegrationsPage() {
           </div>
           <div className="mt-4 flex flex-col gap-1">
             <p className="text-sm font-medium text-foreground">
-              {isImporting ? "Sedang memproses impor bookmark..." : "Tarik dan lepas berkas HTML bookmark ke sini"}
+              {isImporting ? "Importing your bookmarks…" : "Drag and drop an HTML bookmarks file here"}
             </p>
             <p className="text-xs text-muted-foreground">
-              Mendukung format HTML standar dari Chrome, Safari, Raindrop.io, Arc, Firefox, Edge, dan Brave.
+              Supports standard HTML exports from Chrome, Safari, Raindrop.io, Arc, Firefox, Edge, and Brave.
             </p>
           </div>
 
@@ -150,13 +137,13 @@ export default function IntegrationsPage() {
               <Button asChild variant="default" disabled={isImporting}>
                 <span>
                   <UploadSimple data-icon="inline-start" />
-                  {isImporting ? "Mengimpor…" : "Pilih Berkas HTML"}
+                  {isImporting ? "Importing…" : "Choose HTML file"}
                 </span>
               </Button>
               <input
                 type="file"
                 accept=".html,.htm"
-                aria-label="Pilih berkas HTML bookmark untuk diimpor"
+                aria-label="Choose an HTML bookmarks file to import"
                 onChange={(e) => {
                   const file = e.target.files?.[0]
                   void handleImportFile(file)
@@ -171,10 +158,10 @@ export default function IntegrationsPage() {
               variant="outline"
               disabled={isExporting}
               onClick={handleExport}
-              title="Unduh cadangan seluruh bookmark Anda dalam format HTML"
+              title="Download a backup of all your bookmarks as HTML"
             >
               {isExporting ? <Spinner /> : <DownloadSimple data-icon="inline-start" />}
-              {isExporting ? "Menyiapkan…" : "Ekspor dari Cabinet"}
+              {isExporting ? "Preparing…" : "Export from Cabinet"}
             </Button>
           </div>
         </div>
@@ -184,10 +171,10 @@ export default function IntegrationsPage() {
       <section aria-labelledby="pipeline-heading" className="flex flex-col gap-3">
         <div className="flex flex-col gap-1">
           <h2 id="pipeline-heading" className="text-base font-medium text-foreground">
-            Alur Kerja Impor &amp; Ekspor
+            How import &amp; export work
           </h2>
           <p className="text-xs text-muted-foreground">
-            Cabinet menggunakan format terbuka Netscape Bookmarks sehingga data Anda tidak terkunci di satu aplikasi.
+            Cabinet uses the open Netscape Bookmarks format, so your data is never locked into one app.
           </p>
         </div>
         <PipelineDiagram />
@@ -197,10 +184,10 @@ export default function IntegrationsPage() {
       <section aria-labelledby="guides-heading" className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <h2 id="guides-heading" className="text-base font-medium text-foreground">
-            Panduan Berdasarkan Aplikasi Asal
+            Guides by source app
           </h2>
           <p className="text-xs text-muted-foreground">
-            Pilih browser atau aplikasi penanda buku yang sedang Anda gunakan untuk melihat langkah spesifiknya.
+            Pick the browser or bookmarking app you use now to see its specific steps.
           </p>
         </div>
 
@@ -225,7 +212,7 @@ export default function IntegrationsPage() {
               </TabsTrigger>
               <TabsTrigger value="extension" className="gap-2 text-xs">
                 <PuzzlePiece className="size-4" />
-                Ekstensi 1-Klik
+                1-click extension
               </TabsTrigger>
             </TabsList>
           </div>
@@ -234,9 +221,9 @@ export default function IntegrationsPage() {
           <TabsContent value="chrome" className="flex flex-col gap-6">
             <Card>
               <CardHeader className="gap-1 p-5 sm:p-6">
-                <CardTitle className="text-xl">Cara Ekspor dari Google Chrome</CardTitle>
+                <CardTitle className="text-xl">Export from Google Chrome</CardTitle>
                 <CardDescription>
-                  Chrome menyimpan bookmark dalam format HTML Netscape lengkap dengan tanggal dan hierarki folder.
+                  Chrome exports bookmarks as Netscape HTML, including dates and folder hierarchy.
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-6 p-5 pt-0 sm:p-6 sm:pt-0">
@@ -244,37 +231,37 @@ export default function IntegrationsPage() {
                 <ol className="flex flex-col gap-3 text-sm text-foreground">
                   <li className="flex items-start gap-3">
                     <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold">1</span>
-                    <span>Buka Google Chrome di komputer Anda.</span>
+                    <span>Open Google Chrome on your computer.</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold">2</span>
                     <span>
-                      Klik ikon menu <strong>tiga titik vertikal (⋮)</strong> di sudut kanan atas jendela browser.
+                      Click the <strong>three-dot menu (⋮)</strong> in the top-right corner of the browser window.
                     </span>
                   </li>
                   <li className="flex items-start gap-3">
                     <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold">3</span>
                     <span>
-                      Arahkan ke <strong>Bookmarks and lists</strong> (Penanda dan daftar), lalu pilih <strong>Bookmark manager</strong> (Pengelola penanda).
-                      Atau tekan pintasan cepat: <kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">⌘⌥B</kbd> di Mac atau <kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">Ctrl+Shift+O</kbd> di Windows.
+                      Go to <strong>Bookmarks and lists</strong>, then choose <strong>Bookmark manager</strong>.
+                      Or use the shortcut: <kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">⌘⌥B</kbd> on Mac or <kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">Ctrl+Shift+O</kbd> on Windows.
                     </span>
                   </li>
                   <li className="flex items-start gap-3">
                     <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold">4</span>
                     <span>
-                      Di bagian atas halaman Bookmark Manager (di samping bilah cari), klik tombol <strong>tiga titik (⋮)</strong> khusus manajer penanda.
+                      At the top of the Bookmark manager (next to the search bar), click its own <strong>three-dot menu (⋮)</strong>.
                     </span>
                   </li>
                   <li className="flex items-start gap-3">
                     <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold">5</span>
                     <span>
-                      Pilih <strong>Export bookmarks</strong> (Ekspor penanda) dan simpan berkas HTML yang dihasilkan di komputer Anda.
+                      Choose <strong>Export bookmarks</strong> and save the HTML file to your computer.
                     </span>
                   </li>
                   <li className="flex items-start gap-3">
                     <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold">6</span>
                     <span>
-                      Unggah berkas tersebut ke area dropzone di atas halaman ini. Cabinet akan otomatis membuat folder yang sesuai dan mengimpor setiap tautan.
+                      Drop that file into the import area at the top of this page. Cabinet recreates your folders and imports every link.
                     </span>
                   </li>
                 </ol>
@@ -286,9 +273,9 @@ export default function IntegrationsPage() {
           <TabsContent value="safari" className="flex flex-col gap-6">
             <Card>
               <CardHeader className="gap-1 p-5 sm:p-6">
-                <CardTitle className="text-xl">Cara Ekspor dari Apple Safari</CardTitle>
+                <CardTitle className="text-xl">Export from Apple Safari</CardTitle>
                 <CardDescription>
-                  Safari di macOS memungkinkan ekspor seluruh penanda buku dan Reading List ke satu berkas HTML.
+                  Safari on macOS exports all your bookmarks and Reading List to a single HTML file.
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-6 p-5 pt-0 sm:p-6 sm:pt-0">
@@ -296,38 +283,38 @@ export default function IntegrationsPage() {
                 <ol className="flex flex-col gap-3 text-sm text-foreground">
                   <li className="flex items-start gap-3">
                     <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold">1</span>
-                    <span>Buka Safari di Mac Anda.</span>
+                    <span>Open Safari on your Mac.</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold">2</span>
                     <span>
-                      Pada Menu Bar di bagian paling atas layar, klik menu <strong>File</strong> (Berkas).
+                      In the menu bar at the top of the screen, click <strong>File</strong>.
                     </span>
                   </li>
                   <li className="flex items-start gap-3">
                     <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold">3</span>
                     <span>
-                      Pilih <strong>Export Bookmarks...</strong> (Ekspor Penanda...).
+                      Choose <strong>Export Bookmarks…</strong>.
                     </span>
                   </li>
                   <li className="flex items-start gap-3">
                     <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold">4</span>
                     <span>
-                      Tentukan lokasi penyimpanan dan simpan berkas dengan nama <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">Safari Bookmarks.html</code>.
+                      Pick a location and save the file as <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">Safari Bookmarks.html</code>.
                     </span>
                   </li>
                   <li className="flex items-start gap-3">
                     <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold">5</span>
                     <span>
-                      Tarik berkas HTML tersebut ke kotak impor di atas halaman ini.
+                      Drag the HTML file into the import area at the top of this page.
                     </span>
                   </li>
                 </ol>
 
                 <div className="rounded-md border border-border bg-muted/30 p-4 text-xs text-muted-foreground">
-                  <p className="font-medium text-foreground">Catatan untuk Safari iPhone &amp; iPad:</p>
+                  <p className="font-medium text-foreground">A note on Safari for iPhone &amp; iPad:</p>
                   <p className="mt-1 leading-relaxed">
-                    Sistem iOS/iPadOS tidak menyediakan tombol ekspor berkas langsung demi keamanan sandbox. Jika Anda mengaktifkan <strong>iCloud Safari Sync</strong> di Pengaturan iPhone Anda, bookmark iPhone otomatis tersinkron ke Safari di Mac Anda, sehingga Anda bisa mengekspornya langsung dari Mac.
+                    iOS and iPadOS don't offer a bookmark export option. If you turn on <strong>iCloud Safari Sync</strong> in your iPhone Settings, your iPhone bookmarks sync to Safari on your Mac, and you can export them from there.
                   </p>
                 </div>
               </CardContent>
@@ -338,39 +325,39 @@ export default function IntegrationsPage() {
           <TabsContent value="raindrop" className="flex flex-col gap-6">
             <Card>
               <CardHeader className="gap-1 p-5 sm:p-6">
-                <CardTitle className="text-xl">Cara Ekspor dari Raindrop.io</CardTitle>
+                <CardTitle className="text-xl">Export from Raindrop.io</CardTitle>
                 <CardDescription>
-                  Pindahkan bookmark, tag, dan struktur koleksi dari Raindrop ke Cabinet dengan mudah.
+                  Bring your Raindrop bookmarks, tags, and collections into Cabinet.
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-6 p-5 pt-0 sm:p-6 sm:pt-0">
                 <ol className="flex flex-col gap-3 text-sm text-foreground">
                   <li className="flex items-start gap-3">
                     <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold">1</span>
-                    <span>Buka Raindrop.io di browser atau aplikasi desktop.</span>
+                    <span>Open Raindrop.io in your browser or the desktop app.</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold">2</span>
                     <span>
-                      Klik ikon profil Anda atau buka <strong>Settings</strong> (Pengaturan).
+                      Click your profile icon or open <strong>Settings</strong>.
                     </span>
                   </li>
                   <li className="flex items-start gap-3">
                     <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold">3</span>
                     <span>
-                      Pilih tab <strong>Backups</strong> (Cadangan) di bilah navigasi pengaturan.
+                      Choose the <strong>Backups</strong> tab in the settings sidebar.
                     </span>
                   </li>
                   <li className="flex items-start gap-3">
                     <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold">4</span>
                     <span>
-                      Klik <strong>Export as HTML</strong> (Ekspor sebagai HTML). Berkas cadangan akan diunduh secara instan.
+                      Click <strong>Export as HTML</strong>. The backup file downloads right away.
                     </span>
                   </li>
                   <li className="flex items-start gap-3">
                     <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold">5</span>
                     <span>
-                      Tarik berkas HTML dari Raindrop ke area impor Cabinet. Semua folder koleksi Anda akan tetap utuh.
+                      Drag the Raindrop HTML file into Cabinet's import area. Your collection folders stay intact.
                     </span>
                   </li>
                 </ol>
@@ -382,9 +369,9 @@ export default function IntegrationsPage() {
           <TabsContent value="arc-brave" className="flex flex-col gap-6">
             <Card>
               <CardHeader className="gap-1 p-5 sm:p-6">
-                <CardTitle className="text-xl">Cara Ekspor dari Arc, Brave, &amp; Firefox</CardTitle>
+                <CardTitle className="text-xl">Export from Arc, Brave, &amp; Firefox</CardTitle>
                 <CardDescription>
-                  Hampir seluruh browser modern menyediakan menu ekspor berkas bookmark HTML standar.
+                  Almost every modern browser can export a standard HTML bookmarks file.
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-6 p-5 pt-0 sm:p-6 sm:pt-0">
@@ -392,25 +379,25 @@ export default function IntegrationsPage() {
                   <div className="rounded-md border border-border bg-muted/20 p-4 text-xs">
                     <p className="font-semibold text-foreground">Arc Browser</p>
                     <p className="mt-1 text-muted-foreground leading-relaxed">
-                      Tekan <kbd className="rounded border bg-background px-1 py-0.5">⌘T</kbd> lalu ketik <code className="font-mono">Export Bookmarks</code>, atau buka menu atas: <strong>Help</strong> &gt; <strong>Export Bookmarks</strong>. Simpan berkas HTML dan seret ke Cabinet.
+                      Press <kbd className="rounded border bg-background px-1 py-0.5">⌘T</kbd> and type <code className="font-mono">Export Bookmarks</code>, or use the menu bar: <strong>Help</strong> &gt; <strong>Export Bookmarks</strong>. Save the HTML file and drag it into Cabinet.
                     </p>
                   </div>
                   <div className="rounded-md border border-border bg-muted/20 p-4 text-xs">
                     <p className="font-semibold text-foreground">Brave Browser</p>
                     <p className="mt-1 text-muted-foreground leading-relaxed">
-                      Klik menu garis tiga di kanan atas ➔ <strong>Bookmarks</strong> ➔ <strong>Bookmark manager</strong> ➔ klik tombol (⋮) di kanan atas halaman penanda ➔ pilih <strong>Export bookmarks</strong>.
+                      Click the three-line menu in the top right ➔ <strong>Bookmarks</strong> ➔ <strong>Bookmark manager</strong> ➔ click (⋮) at the top right of the bookmarks page ➔ choose <strong>Export bookmarks</strong>.
                     </p>
                   </div>
                   <div className="rounded-md border border-border bg-muted/20 p-4 text-xs">
                     <p className="font-semibold text-foreground">Mozilla Firefox</p>
                     <p className="mt-1 text-muted-foreground leading-relaxed">
-                      Tekan <kbd className="rounded border bg-background px-1 py-0.5">⌘⇧O</kbd> (Mac) atau <kbd className="rounded border bg-background px-1 py-0.5">Ctrl+Shift+O</kbd> (Windows) untuk membuka Library. Pilih <strong>Import and Backup</strong> ➔ <strong>Export Bookmarks to HTML...</strong>.
+                      Press <kbd className="rounded border bg-background px-1 py-0.5">⌘⇧O</kbd> (Mac) or <kbd className="rounded border bg-background px-1 py-0.5">Ctrl+Shift+O</kbd> (Windows) to open the Library. Choose <strong>Import and Backup</strong> ➔ <strong>Export Bookmarks to HTML...</strong>.
                     </p>
                   </div>
                   <div className="rounded-md border border-border bg-muted/20 p-4 text-xs">
                     <p className="font-semibold text-foreground">Pocket</p>
                     <p className="mt-1 text-muted-foreground leading-relaxed">
-                      Masuk ke akun web Pocket ➔ Pengaturan Akun ➔ Buka bagian <strong>Privacy / Export Data</strong> ➔ Klik <strong>Export HTML file</strong> untuk mengunduh seluruh daftar bacaan Anda.
+                      Sign in to Pocket on the web ➔ Account settings ➔ open <strong>Privacy / Export Data</strong> ➔ click <strong>Export HTML file</strong> to download your whole reading list.
                     </p>
                   </div>
                 </div>
@@ -422,40 +409,40 @@ export default function IntegrationsPage() {
           <TabsContent value="extension" className="flex flex-col gap-6">
             <Card>
               <CardHeader className="gap-1 p-5 sm:p-6">
-                <CardTitle className="text-xl">Simpan 1-Klik dengan Ekstensi Browser</CardTitle>
+                <CardTitle className="text-xl">Save in one click with the browser extension</CardTitle>
                 <CardDescription>
-                  Tidak ingin mengekspor berkas manual setiap saat? Gunakan ekstensi resmi Cabinet untuk Chrome.
+                  Don't want to export a file every time? Use the official Cabinet extension for Chrome.
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-6 p-5 pt-0 sm:p-6 sm:pt-0">
                 <ExtensionWorkflowIllustration />
                 <div className="flex flex-col gap-3 text-sm leading-6">
-                  <h3 className="font-medium">Pasang ekstensi dari folder proyek</h3>
-                  <p className="text-muted-foreground">Saat ini ekstensi dipasang manual, bukan dari Chrome Web Store. Gunakan folder <code>apps/extension</code> dari proyek Cabinet.</p>
+                  <h3 className="font-medium">Install the extension from the project folder</h3>
+                  <p className="text-muted-foreground">For now the extension is installed manually, not from the Chrome Web Store. Use the <code>apps/extension</code> folder from the Cabinet project.</p>
                   <ol className="list-decimal pl-5">
-                    <li>Buka <code>chrome://extensions</code> dan aktifkan Developer mode.</li>
-                    <li>Pilih Load unpacked, lalu pilih folder <code>apps/extension</code>.</li>
-                    <li>Buka Options ekstensi. Atur alamat aplikasi dan API sesuai server Cabinet Anda.</li>
-                    <li>Masuk ke Cabinet, lalu simpan satu halaman melalui ekstensi. Langkah panduan selesai setelah halaman benar-benar tersimpan di akun.</li>
+                    <li>Open <code>chrome://extensions</code> and turn on Developer mode.</li>
+                    <li>Click Load unpacked, then select the <code>apps/extension</code> folder.</li>
+                    <li>Open the extension's Options and set the app and API URLs for your Cabinet server.</li>
+                    <li>Sign in to Cabinet, then save a page with the extension. Setup is done once that page shows up in your account.</li>
                   </ol>
-                  <p className="text-muted-foreground">Jika tertulis Saved locally, data masih menunggu sinkronisasi. Jangan hapus penyimpanan ekstensi sebelum sinkronisasi selesai.</p>
+                  <p className="text-muted-foreground">If it says Saved locally, the save is still waiting to sync. Don't clear the extension's storage until syncing finishes.</p>
                 </div>
                 <div className="flex flex-col gap-3 text-sm text-foreground">
                   <p className="leading-relaxed text-muted-foreground">
-                    Ekstensi Cabinet membaca sesi aktif Anda langsung di browser. Anda dapat menyimpan halaman web apapun ke folder yang diinginkan atau menyimpan kutipan teks (highlight) dengan pintasan keyboard.
+                    The Cabinet extension uses your active browser session. Save any web page to the folder you want, or save highlighted text as a quote, with a keyboard shortcut.
                   </p>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <div className="rounded-md border border-border bg-muted/30 p-3">
                       <span className="font-mono text-xs font-semibold text-foreground">⌘⇧S / Ctrl+Shift+S</span>
-                      <p className="mt-1 text-xs text-muted-foreground">Buka popup simpan lengkap dengan pilihan folder dan tag.</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Open the save popup with folder and tag options.</p>
                     </div>
                     <div className="rounded-md border border-border bg-muted/30 p-3">
                       <span className="font-mono text-xs font-semibold text-foreground">⌥⇧S / Alt+Shift+S</span>
-                      <p className="mt-1 text-xs text-muted-foreground">Simpan langsung ke folder terakhir tanpa membuka popup.</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Save straight to the last-used folder without opening the popup.</p>
                     </div>
                     <div className="rounded-md border border-border bg-muted/30 p-3">
                       <span className="font-mono text-xs font-semibold text-foreground">⌥⇧H / Alt+Shift+H</span>
-                      <p className="mt-1 text-xs text-muted-foreground">Simpan teks yang sedang disorot sebagai kutipan catatan.</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Save the highlighted text as a quote.</p>
                     </div>
                   </div>
                 </div>
@@ -468,31 +455,31 @@ export default function IntegrationsPage() {
       {/* Helpful Guarantees & FAQ */}
       <section aria-labelledby="faq-heading" className="flex flex-col gap-3 border-t border-border/80 pt-6">
         <h2 id="faq-heading" className="text-base font-medium text-foreground">
-          Hal yang Perlu Diketahui Tentang Impor Cabinet
+          Good to know about importing
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-4">
             <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-              <CheckCircle className="size-4 text-library-olive" /> Struktur Folder Terjaga
+              <CheckCircle className="size-4 text-library-olive" /> Folder structure preserved
             </span>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Semua sub-folder dari Chrome atau Safari otomatis dipetakan menjadi hierarki folder di Cabinet tanpa mengubah susunan aslinya.
+              Subfolders from Chrome or Safari map directly to Cabinet folders, keeping their original order.
             </p>
           </div>
           <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-4">
             <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-              <CheckCircle className="size-4 text-library-olive" /> Pratinjau Gambar Otomatis
+              <CheckCircle className="size-4 text-library-olive" /> Automatic previews
             </span>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Setelah berkas diimpor, server Cabinet secara bertahap mengambil gambar pratinjau dan deskripsi OpenGraph di latar belakang.
+              After import, Cabinet fetches preview images and OpenGraph descriptions in the background.
             </p>
           </div>
           <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-4">
             <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-              <CheckCircle className="size-4 text-library-olive" /> Pembersihan Duplikat
+              <CheckCircle className="size-4 text-library-olive" /> Duplicate cleanup
             </span>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Jika ada URL yang sama diimpor berulang kali, fitur deteksi duplikat di menu Pemeliharaan dapat merapikannya dalam satu klik.
+              If the same URL gets imported more than once, duplicate detection in Maintenance can clean it up in one click.
             </p>
           </div>
         </div>
@@ -502,17 +489,17 @@ export default function IntegrationsPage() {
       <footer className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-border pt-6 text-xs text-muted-foreground">
         <div className="flex items-center gap-2">
           <span className="font-serif text-lg text-foreground">Cabinet</span>
-          <span>· Integrations &amp; Connections Guide</span>
+          <span>· Integrations &amp; import guide</span>
         </div>
         <div className="flex items-center gap-4">
           <Link href="/cabinet/settings" className="hover:text-foreground">
-            Buka Pengaturan
+            Open settings
           </Link>
           <Link href="/cabinet" className="hover:text-foreground">
-            Ke Pustaka
+            Go to library
           </Link>
         </div>
       </footer>
-    </main>
+    </PageShell>
   )
 }

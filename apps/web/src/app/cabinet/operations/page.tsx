@@ -1,8 +1,8 @@
 "use client"
 
-import Link from "next/link"
 import { useQuery } from "@tanstack/react-query"
-import { ArrowLeft, ArrowClockwise } from "@phosphor-icons/react"
+import { ArrowClockwise } from "@phosphor-icons/react"
+import { PageHeader, PageShell } from "@/components/page-header"
 import type { OperationsMetrics, LatencyMeasurement } from "@cabinet/api-client"
 import { authClient } from "@/lib/auth-client"
 import { AXIOS_INSTANCE, isRateLimited } from "@/lib/api-client"
@@ -55,9 +55,9 @@ export default function OperationsPage() {
   const access = useQuery({ queryKey: ["operations-access", session?.user.id], enabled: !!session?.user.id, queryFn: async () => (await AXIOS_INSTANCE.get("/v1/operations/access")).data as { enabled: boolean } })
   const metrics = useQuery({ queryKey: ["operations-metrics", session?.user.id], enabled: !!access.data?.enabled, queryFn: async (): Promise<OperationsMetrics> => (await AXIOS_INSTANCE.get("/v1/operations/metrics")).data, refetchInterval: () => (isRateLimited() ? false : 5000) })
   const data = metrics.data
-  return <main className="mx-auto flex min-h-dvh max-w-5xl flex-col gap-8 px-4 py-6 sm:px-8 sm:py-10">
-    <header className="flex flex-col gap-5"><Link href="/cabinet" className="inline-flex min-h-11 w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft />Cabinet</Link><div className="flex flex-wrap items-start justify-between gap-4"><div className="flex flex-col gap-2"><h1 className="text-2xl font-semibold tracking-tight">Server measurements</h1><p className="text-sm text-muted-foreground">This API process, measured live. Operator access only.</p></div><Button variant="outline" disabled={!access.data?.enabled || metrics.isFetching} onClick={() => void metrics.refetch()}><ArrowClockwise data-icon="inline-start" />Refresh</Button></div></header>
-    {access.isError ? <Alert><AlertTitle>Could not check operator access</AlertTitle><AlertDescription><Button variant="outline" size="sm" onClick={() => void access.refetch()}>Try again</Button></AlertDescription></Alert> : access.data && !access.data.enabled ? <Alert><AlertTitle>Operator access required</AlertTitle><AlertDescription>Ask the server administrator to configure OPERATIONS_USER_IDS. No server measurements are exposed to other accounts.</AlertDescription></Alert> : metrics.isError ? <Alert><AlertTitle>Measurements are unavailable</AlertTitle><AlertDescription>Last good measurements are retained in this page. <Button variant="outline" size="sm" onClick={() => void metrics.refetch()}>Retry</Button></AlertDescription></Alert> : !data ? <div role="status" aria-label="Loading measurements" className="flex flex-col gap-4"><Skeleton className="h-24 w-full" /><Skeleton className="h-48 w-full" /></div> : null}
+  return <PageShell>
+    <PageHeader title="Server measurements" description="This API process, measured live. Operator access only." actions={<Button variant="outline" disabled={!access.data?.enabled || metrics.isFetching} onClick={() => void metrics.refetch()}><ArrowClockwise data-icon="inline-start" />Refresh</Button>} />
+    {access.isError ? <Alert><AlertTitle>Could not check operator access</AlertTitle><AlertDescription><Button variant="outline" size="sm" onClick={() => void access.refetch()}>Try again</Button></AlertDescription></Alert> : access.data && !access.data.enabled ? <Alert><AlertTitle>This page is for server operators</AlertTitle><AlertDescription>Your account doesn&apos;t have access to server measurements.</AlertDescription></Alert> : metrics.isError ? <Alert><AlertTitle>Measurements are unavailable</AlertTitle><AlertDescription>Last good measurements are retained in this page. <Button variant="outline" size="sm" onClick={() => void metrics.refetch()}>Retry</Button></AlertDescription></Alert> : !data ? <div role="status" aria-label="Loading measurements" className="flex flex-col gap-4"><Skeleton className="h-24 w-full" /><Skeleton className="h-48 w-full" /></div> : null}
     {data && <>
       <section aria-labelledby="runtime-title" className="flex flex-col gap-4">
         <h2 id="runtime-title" className="text-base font-medium">Runtime</h2>
@@ -78,5 +78,5 @@ export default function OperationsPage() {
       <section aria-labelledby="queue-title" className="flex flex-col gap-4"><h2 id="queue-title" className="text-base font-medium">Background work · all accounts</h2><div className="grid gap-5 sm:grid-cols-2">{[["Imports & link checks", data.tasks], ["Metadata", data.metadata]].map(([title, counts]) => <div key={String(title)} className="flex flex-col gap-3"><h3 className="text-sm font-medium">{String(title)}</h3><dl className="flex flex-col gap-2">{["PENDING", title === "Metadata" ? "PROCESSING" : "RUNNING", "FAILED", "COMPLETED"].map((status) => <div key={status} className="flex justify-between gap-4 text-sm"><dt className="text-muted-foreground">{{ PENDING: "Waiting", RUNNING: "Running", PROCESSING: "Running", FAILED: "Failed", COMPLETED: "Complete" }[status]}</dt><dd className="tabular-nums">{((counts as Record<string, number>)[status] || 0).toLocaleString()}</dd></div>)}</dl></div>)}</div></section>
       <p className="text-sm leading-6 text-muted-foreground">{data.sampling} Measurements are process-local, not a fleet-wide monitoring service. Resident memory includes native allocations.</p>
     </>}
-  </main>
+  </PageShell>
 }

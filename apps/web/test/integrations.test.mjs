@@ -63,8 +63,8 @@ test("IntegrationsPage renders with illustrations, guides, and dropzone", () => 
   )
 
   // Header & Navigation
-  assert.match(html, /Integrations &amp; Connections|Integrations & Connections/)
-  assert.match(html, /Kembali ke Cabinet/)
+  assert.match(html, /Integrations &amp; import|Integrations & import/)
+  assert.match(html, /Back to Cabinet/)
 
   // Interactive dropzone & action buttons
   assert.match(html, /Tarik dan lepas berkas HTML bookmark ke sini/)
