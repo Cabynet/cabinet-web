@@ -7,7 +7,7 @@ import {
   Plus,
   FileText,
   Star,
-  Faders,
+  List,
   Scribble,
 } from "@phosphor-icons/react"
 import { cn } from "@/lib/utils"
@@ -144,7 +144,7 @@ export function MobileBottomNav({
           </span>
         </button>
 
-        {/* Tab 5: Library / Filters */}
+        {/* Tab 5: Menu — library filters, tags, and account */}
         <button
           type="button"
           aria-current={activeTab === "library" ? "page" : undefined}
@@ -159,12 +159,12 @@ export function MobileBottomNav({
               : "text-brand-muted hover:text-brand-charcoal"
           )}
         >
-          <Faders
+          <List
             className="size-5"
             weight={activeTab === "library" ? "fill" : "regular"}
           />
           <span className="text-xs font-medium">
-            Library
+            Menu
           </span>
         </button>
       </div>

@@ -11,7 +11,8 @@ export function WorkspaceHeader({ children, actions, onOpenNavigation, className
   className?: string
 }) {
   return <header className={cn("flex min-h-12 shrink-0 items-center gap-3 pt-2 pb-1 sm:pt-2.5 sm:pb-1", className)}>
-    <SidebarTrigger onClick={onOpenNavigation} className="size-11 shrink-0 md:size-9" />
+    {/* On phones the bottom navigation opens the sidebar, so this trigger is desktop-only. */}
+    <SidebarTrigger onClick={onOpenNavigation} className="hidden size-9 shrink-0 md:inline-flex" />
     <div className="flex min-w-0 flex-1 items-center gap-3">{children}{actions}</div>
   </header>
 }
