@@ -2,19 +2,21 @@ import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import test from "node:test"
 import vm from "node:vm"
-import ts from "typescript"
+import { transformSync } from "esbuild"
 
 // Run the dashboard's actual effect without mocking its unrelated UI/auth hooks.
-const source = ts.createSourceFile("dashboard.tsx", readFileSync(new URL("../src/app/cabinet/cabinet-dashboard.tsx", import.meta.url), "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
-let effectSource
-function visit(node) {
-  if (ts.isCallExpression(node) && node.expression.getText(source) === "React.useEffect" && node.arguments[0]?.getText(source).includes("new IntersectionObserver")) {
-    effectSource = node.arguments[0].getText(source)
-  }
-  ts.forEachChild(node, visit)
+const dashboard = readFileSync(new URL("../src/app/cabinet/cabinet-dashboard.tsx", import.meta.url), "utf8")
+const observerAt = dashboard.indexOf("new IntersectionObserver")
+assert.ok(observerAt > 0, "dashboard must observe the pagination sentinel")
+// The effect is the function passed to the React.useEffect call that creates the observer.
+// shortcut: brace matching ignores braces inside strings/comments; fine while the effect has none, else use a parser.
+const effectStart = dashboard.lastIndexOf("React.useEffect(", observerAt) + "React.useEffect(".length
+let effectEnd = dashboard.indexOf("{", effectStart)
+for (let depth = 0; effectEnd < dashboard.length; effectEnd++) {
+  if (dashboard[effectEnd] === "{") depth++
+  else if (dashboard[effectEnd] === "}" && --depth === 0) break
 }
-visit(source)
-assert.ok(effectSource, "dashboard must observe the pagination sentinel")
+const effectSource = dashboard.slice(effectStart, effectEnd + 1)
 
 function setup(overrides = {}) {
   const observers = []
@@ -30,7 +32,7 @@ function setup(overrides = {}) {
     },
     ...overrides,
   }
-  const effect = vm.runInNewContext(ts.transpile(`(${effectSource})`, { target: ts.ScriptTarget.ESNext }), context)
+  const effect = vm.runInNewContext(transformSync(`(${effectSource})`, { loader: "ts" }).code, context)
   return { context, effect, observers, requests }
 }
 

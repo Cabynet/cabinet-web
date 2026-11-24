@@ -4,7 +4,7 @@ import { registerHooks } from "node:module"
 import test from "node:test"
 import React from "react"
 import { renderToStaticMarkup } from "react-dom/server"
-import ts from "typescript"
+import { transformSync } from "esbuild"
 
 // Node strips TypeScript, but needs JSX and the app's path alias resolved.
 registerHooks({
@@ -27,9 +27,9 @@ registerHooks({
       return {
         format: "module",
         shortCircuit: true,
-        source: ts.transpileModule(readFileSync(new URL(url), "utf8"), {
-          compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.ESNext },
-        }).outputText,
+        source: transformSync(readFileSync(new URL(url), "utf8"), {
+          loader: url.endsWith(".tsx") ? "tsx" : "ts", jsx: "automatic", format: "esm",
+        }).code,
       }
     }
     return next(url, context)
