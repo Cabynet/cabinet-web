@@ -3,6 +3,9 @@ import path from 'path';
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ["@cabinet/api-client"],
+  experimental: {
+    agentUpgrade: "security",
+  },
   webpack: (config) => {
     config.resolve.alias['@tanstack/react-query'] = path.resolve(
       process.cwd(),
