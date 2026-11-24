@@ -5,10 +5,10 @@ import { startBookmarkDrag } from "@/lib/bookmark-drag"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Star, PushPin, Archive, PencilSimple, Trash, Copy, DotsThreeVertical, LinkSimple, ArrowCounterClockwise, ArrowSquareOut, FileText, FilePdf, DownloadSimple, FolderSimple, Scribble } from "@phosphor-icons/react"
+import { Star, PushPin, Archive, PencilSimple, Trash, Copy, DotsThreeVertical, LinkSimple, ArrowCounterClockwise, ArrowSquareOut, FileText, FilePdf, FolderSimple, Scribble } from "@phosphor-icons/react"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { toast } from "@/components/ui/sonner"
-import { canDownloadMedia, isDrawingBookmark, isNoteBookmark, isVideoBookmark, isPdfBookmark, itemAccess } from "@/lib/bookmark-kind"
+import { isDrawingBookmark, isNoteBookmark, isVideoBookmark, isPdfBookmark, itemAccess } from "@/lib/bookmark-kind"
 import { activateBookmark, bookmarkOriginalHref } from "@/lib/bookmark-click"
 import { defaultDisplayPreferences, effectiveDisplayPreferences, type DisplayPreferences } from "./display-preferences"
 import { verticalListSortingStrategy } from "@dnd-kit/sortable"
@@ -35,7 +35,6 @@ interface BookmarkListViewProps {
   onRestoreBookmark?: (id: string) => void
   onPermanentDeleteBookmark?: (id: string) => void
   onOpenActionSheet?: (bookmark: any) => void
-  onOpenDownload?: (bookmark: any) => void
   onInspectBookmark?: (bookmark: any) => void
 }
 
@@ -43,7 +42,7 @@ export function BookmarkListView({
   sortableInParent = false, displayPreferences, bookmarks, selectedBookmarkIds, onToggleSelect, onSelectTag,
   onToggleFavorite, onTogglePin, onToggleArchive, onEditBookmark, onDeleteBookmark,
   onDuplicateBookmark, getHostname, onReorder, isTrashView, onRestoreBookmark,
-  onPermanentDeleteBookmark, onOpenActionSheet, onOpenDownload, onInspectBookmark,
+  onPermanentDeleteBookmark, onOpenActionSheet, onInspectBookmark,
 }: BookmarkListViewProps) {
   const preferences = effectiveDisplayPreferences(displayPreferences ?? defaultDisplayPreferences)
   const handleCopyUrl = (url: string, event: React.MouseEvent) => {
@@ -69,7 +68,6 @@ export function BookmarkListView({
           const isPdf = isPdfBookmark(bookmark)
           const inCabinet = isNote || isDrawing
           const isVideo = isVideoBookmark(bookmark)
-          const canDownload = canDownloadMedia(bookmark)
           const access = itemAccess(bookmark)
           const own = access === "owner"
           const originalHref = bookmarkOriginalHref(bookmark)
@@ -135,7 +133,6 @@ export function BookmarkListView({
                         <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" title="More actions"><DotsThreeVertical /></Button></DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48"><DropdownMenuGroup>
                           {!inCabinet && originalHref && <DropdownMenuItem asChild><a href={originalHref} target="_blank" rel="noopener noreferrer"><ArrowSquareOut />Open original</a></DropdownMenuItem>}
-                          {canDownload && onOpenDownload && <DropdownMenuItem onClick={() => onOpenDownload(bookmark)}><DownloadSimple />Download media</DropdownMenuItem>}
                           <DropdownMenuItem onClick={() => onEditBookmark(bookmark)}><PencilSimple />Edit details</DropdownMenuItem>
                           {!inCabinet && <DropdownMenuItem onClick={(event) => handleCopyUrl(bookmark.url, event)}><LinkSimple />Copy link</DropdownMenuItem>}
                           {!isDrawing && <DropdownMenuItem onClick={() => onDuplicateBookmark(bookmark)}><Copy />Duplicate</DropdownMenuItem>}

@@ -2,7 +2,6 @@
 
 import { useInvalidate } from "./hooks/use-invalidate"
 import React, { useEffect, useState } from "react"
-import nextDynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import {
@@ -61,10 +60,6 @@ import {
 } from "@/components/ui/action-bar"
 import { MobileBottomNav, type MobileTab } from "./components/mobile-bottom-nav"
 import { MobileAddBookmarkDrawer } from "./components/mobile-add-bookmark-drawer"
-const DownloadMediaDialog = nextDynamic(
-  () => import("./components/download-media-dialog").then((module) => module.DownloadMediaDialog),
-  { loading: () => <div role="status" className="fixed inset-0 z-50 grid place-items-center bg-background/60"><Spinner /></div> },
-)
 import { CommandMenu } from "./components/command-menu"
 import { BulkActionsSheet, BulkTagForm } from "./components/bulk-actions-sheet"
 import { useCabinetFilters } from "./hooks/use-cabinet-filters"
@@ -186,7 +181,6 @@ function CabinetWorkspace() {
   const [isTagPopoverOpen, setIsTagPopoverOpen] = useState(false)
   const { isMobile, setOpenMobile } = useSidebar()
   const [isMobileAddOpen, setIsMobileAddOpen] = useState(false)
-  const [downloadBookmark, setDownloadBookmark] = useState<any | null>(null)
   const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false)
   const [isBulkSheetOpen, setIsBulkSheetOpen] = useState(false)
   const [previewBookmark, setPreviewBookmark] = useState<any | null>(null)
@@ -529,7 +523,7 @@ function CabinetWorkspace() {
       setIsBookmarkModalOpen(true)
     },
     onEscape: selectedBookmarkIds.length > 0 ? () => setSelectedBookmarkIds([]) : undefined,
-    isAnyModalOpen: isBookmarkModalOpen || isFolderModalOpen || isMobileAddOpen || !!downloadBookmark,
+    isAnyModalOpen: isBookmarkModalOpen || isFolderModalOpen || isMobileAddOpen,
   })
 
   const handleToggleSelectBookmark = React.useCallback((id: string) => {
@@ -805,7 +799,6 @@ function CabinetWorkspace() {
                 onRestoreBookmark={handleRestoreBookmark}
                 onPermanentDeleteBookmark={handlePermanentDeleteBookmark}
                 onEmptyTrash={handleEmptyTrash}
-                onOpenDownload={setDownloadBookmark}
                 isBrokenView={filterBroken}
                 previewBookmark={previewBookmark}
                 onPreviewBookmarkChange={setPreviewBookmark}
@@ -994,12 +987,6 @@ function CabinetWorkspace() {
         trashCount={healthSummary?.trash || 0}
       />
 
-      {/* Download Media (Video / Audio) Dialog */}
-      <DownloadMediaDialog
-        bookmark={downloadBookmark}
-        isOpen={!!downloadBookmark}
-        onClose={() => setDownloadBookmark(null)}
-      />
 
       {/* Drag & Drop File Upload Overlay from Finder */}
       <FileDropOverlay

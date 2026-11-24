@@ -3,7 +3,6 @@
 import React from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { SearchHighlight } from "./search-highlight"
-import { Masonry } from "@/components/ui/masonry"
 import { cn } from "@/lib/utils"
 import { startBookmarkDrag } from "@/lib/bookmark-drag"
 import { Badge } from "@/components/ui/badge"
@@ -11,11 +10,11 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
-import { Star, PushPin, Archive, PencilSimple, Trash, ArrowSquareOut, Copy, DotsThreeVertical, LinkSimple, ArrowCounterClockwise, FileText, FilePdf, DownloadSimple, VideoCamera, FolderSimple, Scribble, Eye, CheckSquare, type Icon } from "@phosphor-icons/react"
+import { Star, PushPin, Archive, PencilSimple, Trash, ArrowSquareOut, Copy, DotsThreeVertical, LinkSimple, ArrowCounterClockwise, FileText, FilePdf, VideoCamera, FolderSimple, Scribble, Eye, CheckSquare, type Icon } from "@phosphor-icons/react"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { toast } from "@/components/ui/sonner"
-import { canDownloadMedia, highlightQuote, isDrawingBookmark, isImageBookmark, isNoteBookmark, isVideoBookmark, isPdfBookmark, itemAccess } from "@/lib/bookmark-kind"
+import { highlightQuote, isDrawingBookmark, isImageBookmark, isNoteBookmark, isVideoBookmark, isPdfBookmark, itemAccess } from "@/lib/bookmark-kind"
 import { safeHttpUrl } from "@/lib/shared-collection"
 import { activateBookmark, bookmarkOriginalHref } from "@/lib/bookmark-click"
 import { useProxiedImageUrl } from "@/lib/signed-proxy"
@@ -47,7 +46,6 @@ export interface MoodboardCardProps {
   onRestoreBookmark?: (id: string) => void
   onPermanentDeleteBookmark?: (id: string) => void
   onOpenActionSheet?: (bookmark: any) => void
-  onOpenDownload?: (bookmark: any) => void
   onInspectBookmark?: (bookmark: any) => void
 }
 
@@ -97,7 +95,6 @@ export function MoodboardCard({
   onRestoreBookmark,
   onPermanentDeleteBookmark,
   onOpenActionSheet,
-  onOpenDownload,
   onInspectBookmark,
 }: MoodboardCardProps) {
   const queryClient = useQueryClient()
@@ -118,7 +115,6 @@ export function MoodboardCard({
   // Personal actions (select, pin, favorite, archive) belong to the item's author.
   const access = itemAccess(bookmark)
   const own = access === "owner"
-  const canDownload = canDownloadMedia(bookmark)
   const originalHref = bookmarkOriginalHref(bookmark)
   const activate = (event: React.MouseEvent) =>
     activateBookmark(event, {
@@ -254,7 +250,6 @@ export function MoodboardCard({
           ...(own && onTogglePin ? [{ key: "pin", label: bookmark.isPinned ? "Unpin" : "Pin to top", Icon: PushPin, onSelect: () => onTogglePin(bookmark), contextOnly: true }] : []),
           ...(own ? [{ key: "favorite", label: bookmark.isFavorite ? "Remove from favorites" : "Add to favorites", Icon: Star, onSelect: () => onToggleFavorite(bookmark), contextOnly: true }] : []),
           ...(own ? [{ key: "select", label: isSelected ? "Deselect" : "Select", Icon: CheckSquare, onSelect: onToggleSelect, contextOnly: true }] : []),
-          ...(canDownload && onOpenDownload ? [{ key: "download", label: "Download media", Icon: DownloadSimple, onSelect: () => onOpenDownload(bookmark) }] : []),
         ],
         access === "viewer" ? [] : [
           { key: "edit", label: "Edit details", Icon: PencilSimple, onSelect: () => onEditBookmark(bookmark) },
@@ -421,23 +416,6 @@ export function MoodboardCard({
               </Tooltip>
             )}
 
-            {/* Download Video Media if available */}
-            {canDownload && onOpenDownload && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={() => onOpenDownload(bookmark)}
-                    variant="ghost"
-                    size="icon-xs"
-                    className="hidden size-6 sm:inline-flex"
-                    title="Download media"
-                  >
-                    <DownloadSimple className="size-3.5" weight="bold" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Download media</TooltipContent>
-              </Tooltip>
-            )}
 
             {/* Desktop 3-Dot Dropdown */}
             <div className="hidden md:inline-flex">

@@ -24,20 +24,11 @@ import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription } 
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogCancel } from "../../src/components/ui/alert-dialog"
 import { Drawer, DrawerTrigger, DrawerContent, DrawerTitle, DrawerDescription } from "../../src/components/ui/drawer"
 import { Sheet, SheetTrigger, SheetContent, SheetTitle, SheetDescription } from "../../src/components/ui/sheet"
-import { DownloadMediaDialog } from "../../src/app/cabinet/components/download-media-dialog"
 
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-for (const id of [1, 2]) client.setQueryData(["cabinet-media-extract", `https://vimeo.com/fixture-${id}`], {
-  title: `Typography study ${id}`, author: "Reading studio", duration: 125, thumbnail: null, platform: "Vimeo",
-  formats: [
-    { formatId: `v${id}`, ext: "mp4", resolution: "1080p", filesize: 1048576, note: "Video", hasVideo: true, hasAudio: true },
-    { formatId: `a${id}`, ext: "mp3", resolution: "Audio", filesize: 524288, note: "Audio", hasVideo: false, hasAudio: true },
-  ],
-})
 function Catalogue() {
   const [command, setCommand] = React.useState(false)
   const [chosen, setChosen] = React.useState("")
-  const [media, setMedia] = React.useState<any>(null)
   return <QueryClientProvider client={client}><TooltipProvider><main className="mx-auto grid max-w-5xl gap-4 p-4 md:grid-cols-2">
     <h1 className="text-2xl font-semibold md:col-span-2">Component checks</h1>
     <Card><CardHeader className="p-4"><CardTitle>Controls</CardTitle></CardHeader><CardContent className="flex flex-col gap-3 p-4">
@@ -56,8 +47,6 @@ function Catalogue() {
       <AlertDialog><AlertDialogTrigger asChild><Button variant="outline">Open confirmation</Button></AlertDialogTrigger><AlertDialogContent><AlertDialogTitle>Confirm action</AlertDialogTitle><AlertDialogDescription>No data will be changed.</AlertDialogDescription><AlertDialogCancel>Cancel confirmation</AlertDialogCancel></AlertDialogContent></AlertDialog>
       <Drawer><DrawerTrigger asChild><Button variant="outline">Open drawer</Button></DrawerTrigger><DrawerContent><DrawerTitle>Drawer title</DrawerTitle><DrawerDescription>Drawer description.</DrawerDescription></DrawerContent></Drawer>
       <Sheet><SheetTrigger asChild><Button variant="outline">Open sheet</Button></SheetTrigger><SheetContent><SheetTitle>Sheet title</SheetTitle><SheetDescription>Sheet description.</SheetDescription></SheetContent></Sheet>
-      {[1, 2].map((id) => <Button key={id} variant="outline" onClick={() => setMedia({ id, title: `Typography study ${id}`, url: `https://vimeo.com/fixture-${id}` })}>Open media {id}</Button>)}
-      <DownloadMediaDialog bookmark={media} isOpen={!!media} onClose={() => setMedia(null)} />
       <output id="chosen">{chosen}</output>
     </CardContent></Card>
     <Card><CardHeader className="p-4"><CardTitle>Connected controls</CardTitle></CardHeader><CardContent className="flex flex-col gap-4 p-4">

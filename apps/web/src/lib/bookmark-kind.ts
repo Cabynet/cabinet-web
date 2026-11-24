@@ -25,15 +25,6 @@ export function isVideoBookmark(bookmark: BookmarkLike): boolean {
 }
 
 /** Posts the media downloader can usually extract from, including X posts that may carry video. */
-/** Mirrors the API's downloader: posts on X, TikTok, Instagram and Vimeo. YouTube is not supported. */
-export function canDownloadMedia(bookmark: BookmarkLike): boolean {
-  const url = parsedUrl(bookmark.url)
-  if (!url) return false
-  const host = url.hostname.toLowerCase()
-  if (hostIs(host, "x.com") || hostIs(host, "twitter.com")) return /\/status\/\d+/.test(url.pathname)
-  return ["tiktok.com", "instagram.com", "vimeo.com"].some((domain) => hostIs(host, domain)) && isVideoBookmark(bookmark)
-}
-
 export function isDrawingBookmark(bookmark: BookmarkLike): boolean {
   return bookmark.type === "DRAWING"
 }

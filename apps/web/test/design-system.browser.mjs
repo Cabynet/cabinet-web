@@ -1,4 +1,4 @@
-// Isolated browser checks of the real primitives and media dialog. No production route is added.
+// Isolated browser checks of the real primitives. No production route is added.
 import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 import { createServer } from "node:http"
@@ -79,23 +79,6 @@ try {
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${theme} ${width}: overflow`)
     await page.screenshot({ path: `/tmp/cabinet-components-${theme}-${width}.png`, fullPage: true, animations: "disabled" })
   }
-  let payload
-  await page.route("**/v1/bookmarks/media/download", async (route) => {
-    const headers = { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Credentials": "true", "Access-Control-Allow-Headers": "content-type", "Access-Control-Allow-Methods": "POST,OPTIONS" }
-    if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers })
-    payload = route.request().postDataJSON()
-    return route.fulfill({ headers, contentType: "video/mp4", body: "explicit test media" })
-  })
-  await page.getByRole("button", { name: "Open media 1", exact: true }).click()
-  await page.getByRole("radio", { name: "Audio Only (MP3)", exact: true }).click()
-  await expect(page.locator('input[value="a1"]')).toBeChecked()
-  await page.getByRole("button", { name: "Close media download" }).click()
-  await page.getByRole("button", { name: "Open media 2", exact: true }).click()
-  await expect(page.locator('input[value="a2"]')).toBeChecked()
-  const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Download MP3", exact: true }).click()])
-  assert.equal(payload.formatId, "a2")
-  assert.equal(payload.mediaType, "AUDIO")
-  assert.match(download.suggestedFilename(), /\.mp3$/)
   assert.deepEqual(errors, [])
-  console.log("PASS design system: real computed radii, command search/keyboard, menu/select/dialog/confirmation/drawer, connected edges, calendar, both themes and widths, media format reset/download payload")
+  console.log("PASS design system: real computed radii, command search/keyboard, menu/select/dialog/confirmation/drawer, connected edges, calendar, both themes and widths")
 } finally { await browser.close(); await new Promise((resolve) => server.close(resolve)) }

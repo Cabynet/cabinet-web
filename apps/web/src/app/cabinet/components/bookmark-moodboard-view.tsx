@@ -55,7 +55,6 @@ interface BookmarkMoodboardViewProps {
   onRestoreBookmark?: (id: string) => void
   onPermanentDeleteBookmark?: (id: string) => void
   onOpenActionSheet?: (bookmark: any) => void
-  onOpenDownload?: (bookmark: any) => void
   onInspectBookmark?: (bookmark: any) => void
 }
 
@@ -93,7 +92,6 @@ export function BookmarkMoodboardView({
   onRestoreBookmark,
   onPermanentDeleteBookmark,
   onOpenActionSheet,
-  onOpenDownload,
   onInspectBookmark,
 }: BookmarkMoodboardViewProps) {
   const canSort = !isTrashView && !!onReorder
@@ -128,7 +126,6 @@ export function BookmarkMoodboardView({
         onRestoreBookmark={onRestoreBookmark}
         onPermanentDeleteBookmark={onPermanentDeleteBookmark}
         onOpenActionSheet={onOpenActionSheet}
-        onOpenDownload={onOpenDownload}
         onInspectBookmark={onInspectBookmark}
       />
     )

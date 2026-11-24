@@ -4,12 +4,6 @@ import { useMutation, useQuery, type InfiniteData, type QueryKey, type UseInfini
 import { bookmarkFromApi, folderFromApi } from "./api-model.ts"
 import {
   AXIOS_INSTANCE,
-  cabinetMediaApi as sharedCabinetMediaApi,
-  type DownloadMediaPayload,
-  type CreateBookmarkRequest,
-  type UpdateBookmarkRequest,
-  type CreateFolderRequest,
-  type UpdateFolderRequest,
   type ListBookmarksParams,
   type BookmarkListResponse,
   useListBookmarks,
@@ -178,28 +172,6 @@ export function useFoldersControllerUpdate(options?: Parameters<typeof useUpdate
       return mutation.mutateAsync({ id, data }, mutateOptions)
     },
   }
-}
-
-export type { MediaFormat, MediaInfo } from "@cabinet/api-client"
-
-export const cabinetMediaApi = {
-  ...sharedCabinetMediaApi,
-  download: async (payload: DownloadMediaPayload): Promise<void> => {
-    const blob = await sharedCabinetMediaApi.download(payload)
-    const downloadUrl = URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    const extension = payload.mediaType === "AUDIO" ? "mp3" : "mp4"
-    const title = payload.title.replace(/[^\w\s-]/gi, "").trim() || "download"
-    try {
-      link.href = downloadUrl
-      link.download = `${title}.${extension}`
-      document.body.appendChild(link)
-      link.click()
-    } finally {
-      link.remove()
-      URL.revokeObjectURL(downloadUrl)
-    }
-  },
 }
 
 export function useBookmarksControllerGetDuplicates(options?: Parameters<typeof useGetDuplicatesHandler>[0]) {

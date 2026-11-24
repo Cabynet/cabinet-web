@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { canDownloadMedia, isVideoBookmark } from "../src/lib/bookmark-kind.ts"
+import { isVideoBookmark } from "../src/lib/bookmark-kind.ts"
 
 test("video detection only matches actual video URLs", () => {
   for (const url of [
@@ -23,21 +23,6 @@ test("video detection only matches actual video URLs", () => {
 
 test("server-classified videos are trusted", () => {
   assert.equal(isVideoBookmark({ url: "https://example.com/clip", contentType: "VIDEO" }), true)
-})
-
-test("X posts can still offer media download without being labeled video", () => {
-  assert.equal(canDownloadMedia({ url: "https://x.com/a/status/123" }), true)
-  assert.equal(canDownloadMedia({ url: "https://x.com/a" }), false)
-})
-
-test("media download follows the API's supported platforms", () => {
-  for (const url of ["https://www.tiktok.com/@a/video/1", "https://www.instagram.com/reel/abc/", "https://vimeo.com/123"]) {
-    assert.equal(canDownloadMedia({ url }), true, url)
-  }
-  for (const url of ["https://www.youtube.com/watch?v=abc", "https://youtu.be/abc", "https://www.youtube.com/shorts/abc", "https://www.tiktok.com/@a"]) {
-    assert.equal(canDownloadMedia({ url }), false, url)
-  }
-  assert.equal(canDownloadMedia({ url: "https://example.com/clip", contentType: "VIDEO" }), false)
 })
 
 test("drawings open in their own editor and are not mistaken for notes", async () => {

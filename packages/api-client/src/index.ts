@@ -1,12 +1,6 @@
 export * from "./hooks"
 export * from "./types"
 export * from "./custom-instance"
-export { cabinetMediaApi } from "./cabinet-media"
-export type {
-  MediaFormat,
-  MediaInfo,
-  DownloadMediaPayload,
-} from "./cabinet-media"
 export type {
   ActivityOverview,
   BackgroundTask,

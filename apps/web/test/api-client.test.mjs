@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { afterEach, test } from "node:test"
-import { AXIOS_INSTANCE, cabinetMediaApi } from "@cabinet/api-client"
+import { AXIOS_INSTANCE } from "@cabinet/api-client"
 
 const originalAdapter = AXIOS_INSTANCE.defaults.adapter
 const originalFetch = globalThis.fetch
@@ -72,18 +72,4 @@ test("social sign-in uses the Better Auth endpoint and credentials", async () =>
   })
   assert.equal(requests, 1)
   assert.equal(data.data.url, "https://github.com/login/oauth/authorize?test")
-})
-
-test("shared media download returns data without using the DOM", async () => {
-  const blob = new Blob(["test media"])
-  AXIOS_INSTANCE.defaults.adapter = async (config) => {
-    assert.equal(config.responseType, "blob")
-    return response(config, blob)
-  }
-  const result = await cabinetMediaApi.download({
-    url: "https://example.com/video",
-    mediaType: "VIDEO",
-    title: "Video",
-  })
-  assert.equal(result, blob)
 })

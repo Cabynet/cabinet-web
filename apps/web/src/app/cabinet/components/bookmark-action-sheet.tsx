@@ -17,13 +17,12 @@ import {
   PushPin,
   Trash,
   ArrowCounterClockwise,
-  DownloadSimple,
   Star,
   CheckSquare,
 } from "@phosphor-icons/react"
 import { toast } from "@/components/ui/sonner"
 import { cn } from "@/lib/utils"
-import { canDownloadMedia, isDrawingBookmark, isNoteBookmark, itemAccess } from "@/lib/bookmark-kind"
+import { isDrawingBookmark, isNoteBookmark, itemAccess } from "@/lib/bookmark-kind"
 
 interface BookmarkActionSheetProps {
   open: boolean
@@ -39,7 +38,6 @@ interface BookmarkActionSheetProps {
   isTrashView?: boolean
   onRestoreBookmark?: (id: string) => void
   onPermanentDeleteBookmark?: (id: string) => void
-  onOpenDownload?: (bookmark: any) => void
 }
 
 export function BookmarkActionSheet({
@@ -56,14 +54,12 @@ export function BookmarkActionSheet({
   isTrashView,
   onRestoreBookmark,
   onPermanentDeleteBookmark,
-  onOpenDownload,
 }: BookmarkActionSheetProps) {
   if (!bookmark) return null
 
   // Notes and drawings have no outside page to open or link to copy.
   const isNote = isNoteBookmark(bookmark) || isDrawingBookmark(bookmark)
   const isDrawing = isDrawingBookmark(bookmark)
-  const canDownload = canDownloadMedia(bookmark)
   // Others' items in a folder you edit: content edits and Trash only.
   const own = itemAccess(bookmark) === "owner"
 
@@ -111,20 +107,6 @@ export function BookmarkActionSheet({
 
         {/* Action List */}
         <div className="flex flex-col gap-1 p-2 [&>a]:rounded-md [&>button]:rounded-md">
-          {/* Download Media (Video/Audio) */}
-          {canDownload && onOpenDownload && (
-            <button
-              type="button"
-              onClick={() => {
-                onOpenChange(false)
-                onOpenDownload(bookmark)
-              }}
-              className="flex h-12 items-center gap-3 px-5 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted"
-            >
-              <DownloadSimple className="size-4 text-muted-foreground" />
-              <span>Download media</span>
-            </button>
-          )}
 
           {/* Open Link */}
           {!isNote && (

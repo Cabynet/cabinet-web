@@ -70,7 +70,6 @@ interface BookmarkListProps {
   onRestoreBookmark?: (id: string) => void
   onPermanentDeleteBookmark?: (id: string) => void
   onEmptyTrash?: () => void
-  onOpenDownload?: (bookmark: any) => void
   onUpdateBookmark?: (id: string, data: any) => Promise<any>
   formatFilter?: CabinetFormat
   onFormatFilterChange?: (format: CabinetFormat) => void
@@ -118,7 +117,6 @@ export function BookmarkList({
   onRestoreBookmark,
   onPermanentDeleteBookmark,
   onEmptyTrash,
-  onOpenDownload,
   onUpdateBookmark,
   formatFilter = "all",
   onFormatFilterChange,
@@ -537,7 +535,6 @@ export function BookmarkList({
               onRestoreBookmark={onRestoreBookmark}
               onPermanentDeleteBookmark={onPermanentDeleteBookmark}
               onOpenActionSheet={setActionSheetBookmark}
-              onOpenDownload={onOpenDownload}
               onInspectBookmark={openBookmark}
             />
           ) : (
@@ -564,7 +561,6 @@ export function BookmarkList({
               onRestoreBookmark={onRestoreBookmark}
               onPermanentDeleteBookmark={onPermanentDeleteBookmark}
               onOpenActionSheet={setActionSheetBookmark}
-              onOpenDownload={onOpenDownload}
               onInspectBookmark={openBookmark}
             />
           )}
@@ -617,7 +613,6 @@ export function BookmarkList({
         isTrashView={isTrashView}
         onRestoreBookmark={onRestoreBookmark}
         onPermanentDeleteBookmark={onPermanentDeleteBookmark}
-        onOpenDownload={onOpenDownload}
       />
     </div>
   )
