@@ -30,6 +30,16 @@ test("X posts can still offer media download without being labeled video", () =>
   assert.equal(canDownloadMedia({ url: "https://x.com/a" }), false)
 })
 
+test("media download follows the API's supported platforms", () => {
+  for (const url of ["https://www.tiktok.com/@a/video/1", "https://www.instagram.com/reel/abc/", "https://vimeo.com/123"]) {
+    assert.equal(canDownloadMedia({ url }), true, url)
+  }
+  for (const url of ["https://www.youtube.com/watch?v=abc", "https://youtu.be/abc", "https://www.youtube.com/shorts/abc", "https://www.tiktok.com/@a"]) {
+    assert.equal(canDownloadMedia({ url }), false, url)
+  }
+  assert.equal(canDownloadMedia({ url: "https://example.com/clip", contentType: "VIDEO" }), false)
+})
+
 test("drawings open in their own editor and are not mistaken for notes", async () => {
   const { editorPath, isNoteBookmark, isDrawingBookmark } = await import("../src/lib/bookmark-kind.ts")
   assert.equal(isNoteBookmark({ type: "DRAWING", url: null }), false)
