@@ -86,6 +86,7 @@ interface SidebarFiltersProps {
   onItemSelect?: () => void
   viewSection?: "all" | "folders" | "library"
   onDropBookmarkToFolder?: (folderId: string, bookmarkIds: string[]) => void
+  onLeaveFolder?: (folder: any) => void
 }
 
 function WorkspaceSidebarGroup({ title, action, children, menu = false }: { title: string; action?: React.ReactNode; children: React.ReactNode; menu?: boolean }) {
@@ -147,12 +148,26 @@ export function CabinetSidebarFilters({
   onItemSelect,
   viewSection = "all",
   onDropBookmarkToFolder,
+  onLeaveFolder,
 }: SidebarFiltersProps) {
   const router = useRouter()
   const { isMobile } = useSidebar()
   const { theme, setTheme } = useTheme()
   const { data: session } = authClient.useSession()
   const currentUser = userProp !== undefined ? userProp : session?.user
+  // Like Google Drive: your own folders, then the ones other people shared with you.
+  const ownFolders = folders.filter((folder) => folder.isOwner !== false)
+  const sharedFolders = folders.filter((folder) => folder.isOwner === false)
+  const selectFolder = (id: string) => {
+    onSelectFolder(id)
+    onSelectTag(undefined)
+    onSelectFavorite(undefined)
+    onSelectArchived(undefined)
+    onSelectBroken(undefined)
+    onSelectDuplicates(undefined)
+    onSelectTrash?.(undefined)
+    onItemSelect?.()
+  }
 
   const handleLogout = async () => {
     if (onLogoutProp) {
@@ -342,24 +357,29 @@ export function CabinetSidebarFilters({
             }
           >
             <FolderTree
-              folders={folders}
+              folders={ownFolders}
               selectedFolderId={selectedFolderId}
-              onSelectFolder={(id) => {
-                onSelectFolder(id)
-                onSelectTag(undefined)
-                onSelectFavorite(undefined)
-                onSelectArchived(undefined)
-                onSelectBroken(undefined)
-                onSelectDuplicates(undefined)
-                onSelectTrash?.(undefined)
-                onItemSelect?.()
-              }}
+              onSelectFolder={selectFolder}
               onEditFolder={onEditFolder}
               onDeleteFolder={onDeleteFolder}
               onCreateSubfolder={onCreateSubfolder}
               onDropBookmarkToFolder={onDropBookmarkToFolder}
             />
           </WorkspaceSidebarGroup>
+
+          {sharedFolders.length > 0 && (
+            <WorkspaceSidebarGroup title="Shared with me">
+              <FolderTree
+                folders={sharedFolders}
+                selectedFolderId={selectedFolderId}
+                onSelectFolder={selectFolder}
+                onEditFolder={onEditFolder}
+                onDeleteFolder={onDeleteFolder}
+                onDropBookmarkToFolder={onDropBookmarkToFolder}
+                onLeaveFolder={onLeaveFolder}
+              />
+            </WorkspaceSidebarGroup>
+          )}
 
           {/* Folder Form Dialog */}
           <FolderDialog

@@ -1,6 +1,6 @@
 import React from "react"
 import { useDroppable } from "@dnd-kit/core"
-import { FolderSimple, PencilSimple, Trash, Plus } from "@phosphor-icons/react"
+import { FolderSimple, PencilSimple, Trash, Plus, SignOut } from "@phosphor-icons/react"
 import { SidebarItemActionsButton } from "./sidebar-item-actions"
 import {
   Accordion,
@@ -44,18 +44,38 @@ interface FolderTreeProps {
   onDeleteFolder: (id: string) => void
   onCreateSubfolder?: (parentId: string) => void
   onDropBookmarkToFolder?: (folderId: string, bookmarkIds: string[]) => void
+  /** Leave a folder someone else shared with you. */
+  onLeaveFolder?: (folder: any) => void
   parentId?: string | null
   depth?: number
 }
 
-function FolderActions({ folder, onEditFolder, onDeleteFolder, onCreateSubfolder }: {
+function FolderActions({ folder, onEditFolder, onDeleteFolder, onCreateSubfolder, onLeaveFolder }: {
   folder: any
   onEditFolder: (folder: any) => void
   onDeleteFolder: (id: string) => void
   onCreateSubfolder?: (parentId: string) => void
+  onLeaveFolder?: (folder: any) => void
 }) {
   const { isMobile } = useSidebar()
-  if (folder.isOwner === false) return null
+  if (folder.isOwner === false) {
+    if (!onLeaveFolder) return null
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <SidebarItemActionsButton
+            label={`Actions for ${folder.name}`}
+            className="md:group-hover/folder:opacity-100 md:group-focus-within/folder:opacity-100"
+          />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" side={isMobile ? "bottom" : "right"} className="w-44">
+          <DropdownMenuItem variant="destructive" onSelect={() => onLeaveFolder(folder)}>
+            <SignOut />Leave folder
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
+  }
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -92,6 +112,7 @@ export function FolderTree({
   onDeleteFolder,
   onCreateSubfolder,
   onDropBookmarkToFolder,
+  onLeaveFolder,
   parentId = null,
   depth = 0,
 }: FolderTreeProps) {
@@ -158,12 +179,22 @@ export function FolderTree({
         >
           <FolderSimple className="size-3.5 shrink-0" />
           <span className="truncate">{folder.name}</span>
+          {folder.pendingRequests > 0 && (
+            <span
+              title={`${folder.pendingRequests} access ${folder.pendingRequests === 1 ? "request" : "requests"}`}
+              className="ml-auto shrink-0 rounded-full bg-primary px-1.5 text-xs leading-4 font-semibold text-primary-foreground tabular-nums"
+            >
+              {folder.pendingRequests}
+              <span className="sr-only"> access requests</span>
+            </span>
+          )}
         </button>
         <FolderActions
           folder={folder}
           onEditFolder={onEditFolder}
           onDeleteFolder={onDeleteFolder}
           onCreateSubfolder={onCreateSubfolder}
+          onLeaveFolder={onLeaveFolder}
         />
         {toggle}
       </FolderDropTarget>
@@ -195,6 +226,7 @@ export function FolderTree({
                 onDeleteFolder={onDeleteFolder}
                 onCreateSubfolder={onCreateSubfolder}
                 onDropBookmarkToFolder={onDropBookmarkToFolder}
+                onLeaveFolder={onLeaveFolder}
                 parentId={folder.id}
                 depth={depth + 1}
               />

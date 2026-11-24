@@ -22,6 +22,11 @@ try {
   let inviteExpiresAt = null
   const inDays = (days) => days == null ? null : new Date(Date.now() + days * 86400000).toISOString()
   let members = []
+  const sharedId = "33333333-3333-4333-8333-333333333333"
+  const lockedId = "44444444-4444-4444-8444-444444444444"
+  let sharedJoined = true
+  let lockedRequested = false
+  let requests = [{ userId: "55555555-5555-4555-8555-555555555555", name: "Requester", email: "req@example.com", message: "For the project", createdAt: "2026-11-24T00:00:00Z" }]
   const writes = []
   await page.route("**/v1/**", async (route) => {
     const request = route.request()
@@ -57,7 +62,21 @@ try {
       if (method === "DELETE") { shareToken = null; shareExpiresAt = null; shareRole = "VIEWER" }
       return response({ data: { shareToken, expiresAt: shareExpiresAt, role: shareRole } })
     }
-    if (path.endsWith("/folders")) return response({ data: [{ id: folderId, userId: "owner", isOwner: true, access: "OWNER", name: "Team links", parentId: null }] })
+    if (path.endsWith(`/folders/${lockedId}/access-requests/mine`)) return response({ requested: lockedRequested })
+    if (path.endsWith(`/folders/${lockedId}/access-requests`)) { lockedRequested = true; return response({ requested: true }) }
+    if (path.endsWith(`/folders/${folderId}/access-requests`)) return response(requests)
+    if (path.includes(`/folders/${folderId}/access-requests/`)) {
+      const userId = path.split("/access-requests/")[1].replace("/approve", "")
+      const request = requests.find((r) => r.userId === userId)
+      requests = requests.filter((r) => r.userId !== userId)
+      if (path.endsWith("/approve")) members = [...members, { userId, role: body.role, user: { name: request.name, email: request.email } }]
+      return response({ updated: true })
+    }
+    if (path.endsWith(`/folders/${sharedId}/membership`)) { sharedJoined = false; return response({ removed: true }) }
+    if (path.endsWith("/folders")) return response({ data: [
+      { id: folderId, userId: "owner", isOwner: true, access: "OWNER", name: "Team links", parentId: null, pendingRequests: requests.length },
+      ...(sharedJoined ? [{ id: sharedId, userId: "friend", isOwner: false, access: "EDITOR", name: "Friend's reading", parentId: null, pendingRequests: 0 }] : []),
+    ] })
     if (path.endsWith("/bookmarks")) return response({ items: [], totalCount: 0, nextCursor: null, hasMore: false })
     if (path.endsWith("/health")) return response({ data: { total: 0, broken: 0, redirected: 0, favorites: 0, archived: 0, trash: 0, duplicates: 0 } })
     return response({ data: [] })
@@ -76,11 +95,27 @@ try {
   await page.getByRole("button", { name: "Join folder", exact: true }).click()
   await page.waitForURL(`${origin}/cabinet/folders/${folderId}`)
 
-  // One Share dialog, like Google Drive: people, roles, invite link, general access.
-  await page.getByRole("button", { name: "Share", exact: true }).click()
+  // Folders shared with you sit under "Shared with me" and can be left.
+  const sidebar = page.getByRole("navigation", { name: "Library navigation" })
+  await expect(sidebar.getByText("Shared with me", { exact: true })).toBeVisible()
+  await expect(sidebar.getByText("Friend's reading", { exact: true })).toBeVisible()
+  await expect(sidebar.getByTitle("1 access request", { exact: true })).toBeVisible() // pending on Team links
+
+  // One Share dialog, like Google Drive: requests, people, roles, general access.
+  await page.getByRole("button", { name: /^Share/ }).click()
   const dialog = page.getByRole("dialog")
   await expect(dialog).toContainText("Share “Team links”")
   await expect(dialog).toContainText("Owner")
+
+  // Access requests: the owner approves with a role (or declines).
+  await expect(dialog.getByText("Access requests", { exact: true })).toBeVisible()
+  await expect(dialog).toContainText("“For the project”")
+  await dialog.getByRole("combobox", { name: "Role for Requester" }).click()
+  await page.getByRole("option", { name: "Contributor" }).click()
+  await dialog.getByRole("button", { name: "Approve", exact: true }).click()
+  assert.deepEqual(writes.at(-1), { method: "POST", path: `/v1/folders/${folderId}/access-requests/55555555-5555-4555-8555-555555555555/approve`, body: { role: "CONTRIBUTOR" } })
+  await expect(dialog.getByText("Access requests", { exact: true })).toHaveCount(0)
+  await expect(dialog.getByRole("combobox", { name: "Access for Requester" })).toHaveText("Contributor")
 
   await dialog.getByLabel("Email address").fill("nobody@example.com")
   await dialog.getByRole("button", { name: "Share", exact: true }).click()
@@ -145,7 +180,7 @@ try {
   // The setting survives closing and reopening the dialog.
   await page.keyboard.press("Escape")
   await expect(dialog).toBeHidden()
-  await page.getByRole("button", { name: "Share", exact: true }).click()
+  await page.getByRole("button", { name: /^Share/ }).first().click()
   await expect(generalAccess).toHaveText("Anyone with the link")
   await expect(linkRole).toHaveText("Editor")
 
@@ -167,6 +202,25 @@ try {
   await page.getByRole("option", { name: "Restricted" }).click()
   assert.deepEqual(writes.at(-1), { method: "DELETE", path: `/v1/folders/${folderId}/share`, body: undefined })
   await expect(dialog.getByRole("combobox", { name: "Role for anyone with the link" })).toHaveCount(0)
+  await page.keyboard.press("Escape")
+
+  // Leaving a shared folder asks first, then removes it from the sidebar.
+  await sidebar.getByRole("button", { name: "Actions for Friend's reading" }).click()
+  await page.getByRole("menuitem", { name: "Leave folder" }).click()
+  await page.getByRole("alertdialog").getByRole("button", { name: "Leave", exact: true }).click()
+  assert.deepEqual(writes.at(-1), { method: "DELETE", path: `/v1/folders/${sharedId}/membership`, body: undefined })
+  await expect(sidebar.getByText("Friend's reading", { exact: true })).toHaveCount(0)
+  await expect(sidebar.getByText("Shared with me", { exact: true })).toHaveCount(0)
+
+  // A folder link without access offers "Request access", like Google Drive.
+  await page.goto(`${origin}/cabinet/folders/${lockedId}`)
+  await expect(page.getByText("You need access", { exact: true })).toBeVisible()
+  await page.getByLabel("Message for the owner (optional)").fill("Please add me")
+  await page.getByRole("button", { name: "Request access", exact: true }).click()
+  assert.deepEqual(writes.at(-1), { method: "POST", path: `/v1/folders/${lockedId}/access-requests`, body: { message: "Please add me" } })
+  await expect(page.getByText(/Request sent\. Once the owner approves/)).toBeVisible()
+  await expect(page.getByRole("button", { name: "Send again", exact: true })).toBeVisible()
+
   assert.deepEqual(errors, [])
-  console.log("PASS invitation sign-in, invalid/revoked handling, acceptance redirect, sharing by email with roles, role changes, general access with link roles, copy link, link expiry, older invite links, and removal")
+  console.log("PASS invitation sign-in, invalid/revoked handling, acceptance redirect, sharing by email with roles, role changes, general access with link roles, copy link, link expiry, older invite links, removal, access requests, shared with me, leaving, and request access")
 } finally { await browser.close() }

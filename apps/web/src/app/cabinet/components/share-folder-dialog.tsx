@@ -29,6 +29,7 @@ type Collaboration = {
   inviteEnabled: boolean
   members: Member[]
 }
+type AccessRequest = { userId: string; name: string; email: string; message?: string | null; createdAt: string }
 type Sharing = { shareToken: string | null; expiresAt?: string | null; role?: FolderRole }
 
 const errorMessage = (error: any, fallback: string) =>
@@ -208,7 +209,7 @@ const linkAccess: Record<FolderRole, string> = {
  * One place to share a folder, modeled on Google Drive: people with their roles, then
  * General access (Restricted or Anyone with the link, with the link's role), and one Copy link.
  */
-export function ShareFolderDialog({ folder }: { folder: { id: string; name: string } }) {
+export function ShareFolderDialog({ folder }: { folder: { id: string; name: string; pendingRequests?: number } }) {
   const [open, setOpen] = React.useState(false)
   const queryClient = useQueryClient()
   const { data: session } = authClient.useSession()
@@ -240,8 +241,18 @@ export function ShareFolderDialog({ folder }: { folder: { id: string; name: stri
     }
   }, [open])
 
+  const requestsKey = [`${endpoint}/access-requests`]
+  const accessRequests = useQuery({
+    queryKey: requestsKey,
+    enabled: open,
+    queryFn: async ({ signal }) => (await AXIOS_INSTANCE.get<AccessRequest[]>(`${endpoint}/access-requests`, { signal })).data,
+  })
+  // Role chosen per request before approving; Viewer unless changed.
+  const [requestRoles, setRequestRoles] = React.useState<Record<string, FolderRole>>({})
+
   const refresh = () => Promise.all([
     queryClient.invalidateQueries({ queryKey: collaborationKey }),
+    queryClient.invalidateQueries({ queryKey: requestsKey }),
     queryClient.invalidateQueries({ queryKey: ["/v1/folders"] }),
   ])
 
@@ -276,6 +287,15 @@ export function ShareFolderDialog({ folder }: { folder: { id: string; name: stri
       setBusy(null)
     }
   }
+
+  const approveRequest = async (request: AccessRequest) => {
+    const role = requestRoles[request.userId] ?? "VIEWER"
+    if (await run(`request-${request.userId}`, () => AXIOS_INSTANCE.post(`${endpoint}/access-requests/${request.userId}/approve`, { role }), "Could not approve the request")) {
+      toast.success(`${request.name || request.email} can now open this folder`)
+    }
+  }
+  const denyRequest = (request: AccessRequest) =>
+    run(`request-${request.userId}`, () => AXIOS_INSTANCE.delete(`${endpoint}/access-requests/${request.userId}`), "Could not decline the request")
 
   const changeRole = (member: Member, role: FolderRole) =>
     run(`role-${member.userId}`, () => AXIOS_INSTANCE.patch(`${endpoint}/members/${member.userId}`, { role }), "Could not change access")
@@ -335,6 +355,11 @@ export function ShareFolderDialog({ folder }: { folder: { id: string; name: stri
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <ShareNetwork data-icon="inline-start" /> Share
+          {!!folder.pendingRequests && (
+            <span className="rounded-full bg-primary px-1.5 text-xs leading-4 font-semibold text-primary-foreground tabular-nums">
+              {folder.pendingRequests}<span className="sr-only"> access requests</span>
+            </span>
+          )}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90dvh] gap-6 overflow-y-auto sm:max-w-xl">
@@ -378,6 +403,36 @@ export function ShareFolderDialog({ folder }: { folder: { id: string; name: stri
           </div>
           {addError && <p role="alert" className="text-xs text-destructive">{addError}</p>}
         </form>
+
+        {!!accessRequests.data?.length && (
+          <section aria-labelledby="share-requests" className="flex flex-col gap-2">
+            <h3 id="share-requests" className="text-xs font-medium text-muted-foreground">Access requests</h3>
+            <ul className="flex flex-col gap-1">
+              {accessRequests.data.map((request) => (
+                <li key={request.userId} className="flex flex-col gap-2 rounded-md bg-muted/40 p-2 sm:flex-row sm:items-center">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <Initial person={request} />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm">{request.name || request.email}</p>
+                      <p className="truncate text-xs text-muted-foreground">{request.email}</p>
+                      {request.message && <p className="mt-1 text-xs break-words text-foreground">“{request.message}”</p>}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1 self-end sm:self-auto">
+                    <RoleSelect
+                      value={requestRoles[request.userId] ?? "VIEWER"}
+                      label={`Role for ${request.name || request.email}`}
+                      disabled={busy === `request-${request.userId}`}
+                      onChange={(role) => setRequestRoles((roles) => ({ ...roles, [request.userId]: role }))}
+                    />
+                    <Button size="sm" variant="ghost" disabled={busy === `request-${request.userId}`} onClick={() => void denyRequest(request)}>Decline</Button>
+                    <Button size="sm" disabled={busy === `request-${request.userId}`} onClick={() => void approveRequest(request)}>Approve</Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         <section aria-labelledby="share-people" className="flex flex-col gap-2">
           <h3 id="share-people" className="text-xs font-medium text-muted-foreground">People with access</h3>

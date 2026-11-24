@@ -8,6 +8,7 @@ import { toast } from "@/components/ui/sonner"
 import { useConfirm } from "@/hooks/use-confirm"
 import { editorPath, itemAccess } from "@/lib/bookmark-kind"
 import type { Bookmark } from "@/lib/api-model"
+import { AXIOS_INSTANCE } from "@/lib/api-client"
 import type { folderFromApi } from "@/lib/api-model"
 import type { useBookmarksControllerCreate, useBookmarksControllerUpdate, useFoldersControllerCreate, useFoldersControllerRemove, useFoldersControllerUpdate } from "@/lib/api-client"
 
@@ -212,6 +213,24 @@ export function useCabinetForms({
     }
   }, [confirm, removeFolderMutation, invalidateAllQueries, selectedFolderId, setSelectedFolderId])
 
+  const handleLeaveFolder = useCallback(async (folder: { id: string; name: string }) => {
+    const isConfirmed = await confirm({
+      title: `Leave "${folder.name}"?`,
+      description: "You'll lose access to its links and notes. The owner can share it with you again.",
+      actionLabel: "Leave",
+      variant: "destructive",
+    })
+    if (!isConfirmed) return
+    try {
+      await AXIOS_INSTANCE.delete(`/v1/folders/${folder.id}/membership`)
+      invalidateAllQueries()
+      if (selectedFolderId === folder.id) setSelectedFolderId(undefined)
+      toast.success(`You left "${folder.name}"`)
+    } catch {
+      toast.error("Could not leave the folder")
+    }
+  }, [confirm, invalidateAllQueries, selectedFolderId, setSelectedFolderId])
+
   const handleCreateSubfolder = useCallback((parentId: string) => {
     setFolderToEdit(null)
     folderForm.reset()
@@ -259,6 +278,7 @@ export function useCabinetForms({
     resetFolderForm,
     handleEditFolder,
     handleDeleteFolder,
+    handleLeaveFolder,
     handleCreateSubfolder,
     bookmarkForm,
     bookmarkToEdit,

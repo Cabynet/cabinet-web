@@ -31,6 +31,7 @@ import { CabinetSidebarFilters } from "./components/cabinet-sidebar-filters"
 import { Toolbar, BookmarkViewControls } from "./components/toolbar"
 import { SearchQueryContext } from "./components/search-highlight"
 import { ShareFolderDialog } from "./components/share-folder-dialog"
+import { RequestAccess } from "./components/request-access"
 import { canAddToFolder, describeFolderAccess, folderAccess } from "@/lib/folder-roles"
 import { editorPath } from "@/lib/bookmark-kind"
 import { useBookmarkEnrichment } from "./hooks/use-bookmark-enrichment"
@@ -227,6 +228,7 @@ function CabinetWorkspace() {
     resetFolderForm,
     handleEditFolder,
     handleDeleteFolder,
+    handleLeaveFolder,
     handleCreateSubfolder,
     bookmarkForm,
     bookmarkToEdit,
@@ -642,6 +644,7 @@ function CabinetWorkspace() {
                 folderForm={folderForm}
                 onEditFolder={handleEditFolder}
                 onDeleteFolder={handleDeleteFolder}
+                onLeaveFolder={handleLeaveFolder}
                 onCreateSubfolder={handleCreateSubfolder}
                 filterBroken={filterBroken}
                 onSelectBroken={(val) => {
@@ -739,7 +742,8 @@ function CabinetWorkspace() {
             <section ref={bookmarkScrollRef} className="h-full min-w-0 flex-1 space-y-5 overflow-y-auto overscroll-contain pr-0 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pr-1 md:pb-8">
               {/* Bookmarks Grid / List */}
               <SearchQueryContext.Provider value={searchDebounced}>
-              <BookmarkList
+              {/* A folder link the person isn't in yet, like Google Drive's "You need access". */}
+              {selectedFolderId && foldersData && !selectedFolder ? <RequestAccess folderId={selectedFolderId} /> : <BookmarkList
                 title={activeFilterLabel}
                 searchQuery={searchQuery}
                 onClearSearch={() => setSearchQuery("")}
@@ -809,7 +813,7 @@ function CabinetWorkspace() {
                   if (data.folderId !== undefined) await invalidateFolders()
                   return result
                 }}
-              />
+              />}
               </SearchQueryContext.Provider>
 
               {!filterDuplicates && hasNextPage && (

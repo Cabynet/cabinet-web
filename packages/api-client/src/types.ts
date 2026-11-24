@@ -68,6 +68,8 @@ export interface FolderDto {
   parentId?: string | null
   position: number
   shareEnabled: boolean
+  /** Pending "Request access" requests; counted only for the owner. */
+  pendingRequests?: number
   updatedAt: string
 }
 
