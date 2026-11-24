@@ -19,20 +19,9 @@ export default function LoginPage() {
   }, [session, router])
 
   useEffect(() => {
-    const oauthError = new URLSearchParams(window.location.search).get("error")
-    if (
-      oauthError === "oauth_unavailable" ||
-      oauthError === "provider_not_found"
-    ) {
-      setError("This sign-in provider is not configured yet.")
-    } else if (oauthError === "account_not_linked") {
-      setError(
-        "This email is already associated with another login provider. Sign in with your existing provider."
-      )
-    } else if (oauthError) {
-      setError(
-        "Sign-in failed or was cancelled. Try again with a verified email."
-      )
+    // The API sends failed or cancelled sign-ins back here with error=oauth_failed.
+    if (new URLSearchParams(window.location.search).has("error")) {
+      setError("Sign-in failed or was cancelled. Try again with a verified email.")
     }
   }, [])
 

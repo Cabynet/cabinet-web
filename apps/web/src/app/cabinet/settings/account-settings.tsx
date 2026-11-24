@@ -44,6 +44,15 @@ export function DeleteAccount() {
     setStep("confirm")
   }, [])
 
+  // Back from a sign-in that failed or was cancelled (the API adds error=oauth_failed).
+  React.useEffect(() => {
+    const url = new URL(window.location.href)
+    if (!url.searchParams.has("error")) return
+    url.searchParams.delete("error")
+    window.history.replaceState(window.history.state, "", url)
+    toast.error("Signing in again failed or was cancelled. Try again to delete your account.")
+  }, [])
+
   // Back from signing in again: pick up where the person left off.
   React.useEffect(() => {
     if (!session) return
