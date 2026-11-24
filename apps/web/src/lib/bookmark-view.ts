@@ -2,10 +2,12 @@ type Density = "comfortable" | "compact" | "visual"
 
 // Narrowest a card may get before the grid drops a column. Phones allow two
 // small columns for the denser layouts; Comfortable stays a single readable column.
-const MIN_CARD_WIDTH: Record<Density, number> = { comfortable: 300, compact: 240, visual: 220 }
+// Comfortable fits four columns at a 1440px window with the sidebar open.
+const MIN_CARD_WIDTH: Record<Density, number> = { comfortable: 250, compact: 240, visual: 220 }
 const PHONE_MIN_CARD_WIDTH: Record<Density, number> = { comfortable: 300, compact: 150, visual: 150 }
 const PHONE_WIDTH = 640
-const MAX_COLUMNS = 5
+// Every density tops out at four columns; wider screens get wider cards instead.
+const MAX_COLUMNS = 4
 
 export function moodboardGap(width: number, density: Density = "comfortable"): number {
   return density === "visual" && width >= PHONE_WIDTH ? 20 : 12

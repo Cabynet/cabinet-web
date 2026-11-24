@@ -79,8 +79,8 @@ export function SidebarTags({ tags, selectedTag, onSelectTag, onCreateTag, onDel
                   >
                     <TagIcon className="size-4" />
                     <span className="truncate">{tag.name}</span>
-                    {/* Gives way to the actions button when the row is hovered or focused. */}
-                    {(tag.bookmarkCount ?? 0) > 0 && <span className="ml-auto hidden text-xs tabular-nums text-muted-foreground/80 md:inline md:group-hover/menu-item:opacity-0 md:group-focus-within/menu-item:opacity-0">{tag.bookmarkCount}</span>}
+                    {/* Sits in the actions button's slot at the right edge and gives way to it on hover or focus. */}
+                    {(tag.bookmarkCount ?? 0) > 0 && <span className="pointer-events-none absolute top-1/2 right-2.5 hidden -translate-y-1/2 text-xs tabular-nums text-muted-foreground/80 md:block md:group-hover/menu-item:opacity-0 md:group-focus-within/menu-item:opacity-0">{tag.bookmarkCount}</span>}
                   </SidebarMenuButton>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
