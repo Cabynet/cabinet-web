@@ -6,7 +6,10 @@ export type SharedBookmark = {
   imageUrl: string | null
 }
 
-export type SharedCollection = { name: string; bookmarks: SharedBookmark[] }
+/** What the folder's link grants: VIEWER only views; CONTRIBUTOR and EDITOR let signed-in visitors join. */
+export type SharedLinkRole = "VIEWER" | "CONTRIBUTOR" | "EDITOR"
+
+export type SharedCollection = { name: string; bookmarks: SharedBookmark[]; role: SharedLinkRole }
 
 export function safeHttpUrl(url: string) {
   try {

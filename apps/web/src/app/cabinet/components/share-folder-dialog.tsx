@@ -2,6 +2,7 @@
 
 import React from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { formatDistanceToNowStrict } from "date-fns"
 import { Globe, Link as LinkIcon, LockSimple, ShareNetwork } from "@phosphor-icons/react"
 import { AXIOS_INSTANCE } from "@/lib/api-client"
 import { authClient } from "@/lib/auth-client"
@@ -17,17 +18,18 @@ import {
   DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog"
 import {
-  Select, SelectContent, SelectGroup, SelectItem, SelectSeparator, SelectTrigger, SelectValue,
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 
 type Person = { name: string; email?: string | null; avatar?: string | null }
 type Member = { userId: string; role: FolderRole; user: Person }
 type Collaboration = {
   owner?: Person & { id: string }
+  /** An older separate invite link is still on; it can only be turned off. */
   inviteEnabled: boolean
-  inviteRole?: FolderRole
   members: Member[]
 }
+type Sharing = { shareToken: string | null; expiresAt?: string | null; role?: FolderRole }
 
 const errorMessage = (error: any, fallback: string) =>
   typeof error?.response?.data?.error?.message === "string" ? error.response.data.error.message : fallback
@@ -73,6 +75,42 @@ function RoleSelect({ value, onChange, onRemove, disabled, label }: {
             </SelectGroup>
           </>
         )}
+      </SelectContent>
+    </Select>
+  )
+}
+
+const expiryChoices = [
+  { value: "never", label: "Never" },
+  { value: "1", label: "In 1 day" },
+  { value: "7", label: "In 7 days" },
+  { value: "30", label: "In 30 days" },
+]
+
+/** Inline "Never expires ▾" / "Expires in 6 days ▾" control; each choice counts from now. */
+function ExpirySelect({ expiresAt, onChange, disabled, label }: {
+  expiresAt?: string | null
+  onChange: (days: number | null) => void
+  disabled?: boolean
+  label: string
+}) {
+  const current = expiresAt ? `Expires in ${formatDistanceToNowStrict(new Date(expiresAt))}` : "Never expires"
+  return (
+    // No item matches "", so the trigger always shows the current state as its placeholder.
+    <Select value="" disabled={disabled} onValueChange={(value) => onChange(value === "never" ? null : Number(value))}>
+      <SelectTrigger
+        size="sm"
+        aria-label={label}
+        title={expiresAt ? new Date(expiresAt).toLocaleString() : undefined}
+        className="h-auto w-auto gap-0.5 rounded-sm border-none bg-transparent p-0 text-xs font-medium text-foreground shadow-none underline-offset-4 hover:underline data-[size=sm]:h-auto data-placeholder:text-foreground dark:bg-transparent dark:hover:bg-transparent [&_svg:not([class*='size-'])]:size-3"
+      >
+        <SelectValue placeholder={current} />
+      </SelectTrigger>
+      <SelectContent align="start">
+        <SelectGroup>
+          <SelectLabel>Link expires</SelectLabel>
+          {expiryChoices.map((choice) => <SelectItem key={choice.value} value={choice.value}>{choice.label}</SelectItem>)}
+        </SelectGroup>
       </SelectContent>
     </Select>
   )
@@ -159,7 +197,17 @@ async function copy(text: string, done: string) {
   }
 }
 
-/** One place to share a folder, modeled on Google Drive: people, roles, an invite link, and public access. */
+/** What "Anyone with the link" grants at each role, in the dialog's words. */
+const linkAccess: Record<FolderRole, string> = {
+  VIEWER: "Anyone with the link can view, no sign-in needed",
+  CONTRIBUTOR: "Anyone with the link can view; people who sign in can add items",
+  EDITOR: "Anyone with the link can view; people who sign in can add and edit",
+}
+
+/**
+ * One place to share a folder, modeled on Google Drive: people with their roles, then
+ * General access (Restricted or Anyone with the link, with the link's role), and one Copy link.
+ */
 export function ShareFolderDialog({ folder }: { folder: { id: string; name: string } }) {
   const [open, setOpen] = React.useState(false)
   const queryClient = useQueryClient()
@@ -177,24 +225,18 @@ export function ShareFolderDialog({ folder }: { folder: { id: string; name: stri
   const sharing = useQuery({
     queryKey: shareKey,
     enabled: open,
-    queryFn: async ({ signal }) =>
-      ({ shareToken: (await AXIOS_INSTANCE.get<{ shareToken: string | null }>(`${endpoint}/share`, { signal })).data.shareToken }),
+    queryFn: async ({ signal }) => toSharing((await AXIOS_INSTANCE.get<Sharing>(`${endpoint}/share`, { signal })).data),
   })
 
   const [email, setEmail] = React.useState("")
   const [newRole, setNewRole] = React.useState<FolderRole>("VIEWER")
   const [addError, setAddError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState<string | null>(null)
-  // The server stores only a hash, so a link can be shown only right after it is created.
-  const [inviteToken, setInviteToken] = React.useState<string | null>(null)
-  // Role for a link that does not exist yet; an active link's role lives on the server.
-  const [draftInviteRole, setDraftInviteRole] = React.useState<FolderRole>("VIEWER")
 
   React.useEffect(() => {
     if (!open) {
       setEmail("")
       setAddError(null)
-      setInviteToken(null)
     }
   }, [open])
 
@@ -239,58 +281,54 @@ export function ShareFolderDialog({ folder }: { folder: { id: string; name: stri
     run(`role-${member.userId}`, () => AXIOS_INSTANCE.patch(`${endpoint}/members/${member.userId}`, { role }), "Could not change access")
 
   const removePerson = async (member: Member) => {
+    const name = member.user.name || member.user.email
     if (await run(`role-${member.userId}`, () => AXIOS_INSTANCE.delete(`${endpoint}/members/${member.userId}`), "Could not remove access")) {
-      // Removing someone also turns off the invite link so they cannot rejoin with it.
-      setInviteToken(null)
-      toast.success(`Removed ${member.user.name || member.user.email}. The invite link was turned off.`)
+      const linkLetsThemBack = !!sharing.data?.shareToken && sharing.data.role !== "VIEWER"
+      toast.success(linkLetsThemBack ? `Removed ${name}. Anyone with the link can still join; set General access to Restricted to stop that.` : `Removed ${name}`)
     }
   }
 
-  const createInvite = (role: FolderRole) =>
-    run("invite", async () => {
-      const response = await AXIOS_INSTANCE.put<{ token: string }>(`${endpoint}/invitation`, { role })
-      const token = response.data.token
-      setInviteToken(token)
-      // Copy right away; the Copy link action stays available if the browser refuses.
-      try {
-        await navigator.clipboard.writeText(`${window.location.origin}/invite/${token}`)
-        toast.success("Invite link created and copied")
-      } catch {
-        toast.success("Invite link created")
-      }
-    }, "Could not create the invite link")
-
-  const changeInviteRole = (role: FolderRole) =>
-    run("invite", () => AXIOS_INSTANCE.patch(`${endpoint}/invitation`, { role }), "Could not change the link role")
-
-  const turnOffInvite = () =>
-    run("invite", async () => {
-      await AXIOS_INSTANCE.delete(`${endpoint}/invitation`)
-      setInviteToken(null)
-    }, "Could not turn off the invite link")
-
-  const setPublic = async (enabled: boolean) => {
-    setBusy("public")
+  // Every link change goes through here so the dialog always shows the server's state.
+  const updateLink = async (request: () => Promise<{ data: Sharing }>, failure: string, success?: string) => {
+    setBusy("link")
     try {
-      const response = enabled
-        ? await AXIOS_INSTANCE.post<{ shareToken: string | null }>(`${endpoint}/share`)
-        : await AXIOS_INSTANCE.delete<{ shareToken: string | null }>(`${endpoint}/share`)
-      queryClient.setQueryData(shareKey, { shareToken: response.data.shareToken })
-      toast.success(enabled ? "Anyone with the link can now view this folder" : "Public link turned off")
-    } catch {
-      toast.error("Could not update public access")
+      const response = await request()
+      queryClient.setQueryData<Sharing>(shareKey, toSharing(response.data))
+      await queryClient.invalidateQueries({ queryKey: ["/v1/folders"] })
+      if (success) toast.success(success)
+    } catch (error) {
+      toast.error(errorMessage(error, failure))
+      // The link may have expired meanwhile.
+      void sharing.refetch()
     } finally {
       setBusy(null)
     }
   }
 
+  const setGeneralAccess = (anyone: boolean) => updateLink(
+    () => anyone
+      ? AXIOS_INSTANCE.post<Sharing>(`${endpoint}/share`, { role: "VIEWER" })
+      : AXIOS_INSTANCE.delete<Sharing>(`${endpoint}/share`),
+    "Could not change general access",
+    anyone ? "Anyone with the link can now view this folder" : "Only people with access can open this folder now",
+  )
+  const changeLinkRole = (role: FolderRole) =>
+    updateLink(() => AXIOS_INSTANCE.patch<Sharing>(`${endpoint}/share`, { role }), "Could not change what the link allows")
+  const changeLinkExpiry = (days: number | null) =>
+    updateLink(() => AXIOS_INSTANCE.patch<Sharing>(`${endpoint}/share`, { expiresInDays: days }), "Could not change when the link expires")
+
+  const turnOffOldInvite = () =>
+    run("invite", () => AXIOS_INSTANCE.delete(`${endpoint}/invitation`), "Could not turn off the old invite link")
+
   const data = collaboration.data
   const owner = data?.owner ?? { name: session?.user?.name || "You", email: session?.user?.email }
-  const inviteRole: FolderRole = data?.inviteEnabled ? data.inviteRole ?? "CONTRIBUTOR" : draftInviteRole
   const origin = typeof window !== "undefined" ? window.location.origin : ""
-  const inviteUrl = inviteToken ? `${origin}/invite/${inviteToken}` : ""
-  const publicToken = sharing.data?.shareToken
-  const publicUrl = publicToken ? new URL(`/share/${publicToken}`, process.env.NEXT_PUBLIC_SITE_URL || origin || "http://localhost").href : ""
+  const linkToken = sharing.data?.shareToken
+  const linkRole: FolderRole = sharing.data?.role ?? "VIEWER"
+  // Like Drive, there is always a link to copy: the public one, or the folder itself for people with access.
+  const link = linkToken
+    ? new URL(`/share/${linkToken}`, process.env.NEXT_PUBLIC_SITE_URL || origin || "http://localhost").href
+    : `${origin}/cabinet/folders/${folder.id}`
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -302,8 +340,8 @@ export function ShareFolderDialog({ folder }: { folder: { id: string; name: stri
       <DialogContent className="max-h-[90dvh] gap-6 overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle className="break-words pr-6">Share “{folder.name}”</DialogTitle>
-          <DialogDescription className="sr-only">
-            Choose who can open this folder and its links and notes. Subfolders stay private.
+          <DialogDescription className="text-xs">
+            Links, notes, and drawings in this folder are shared. Subfolders stay private.
           </DialogDescription>
         </DialogHeader>
 
@@ -376,68 +414,71 @@ export function ShareFolderDialog({ folder }: { folder: { id: string; name: stri
           <h3 id="share-general" className="text-xs font-medium text-muted-foreground">General access</h3>
           <ul className="flex flex-col gap-1">
             <AccessRow
-              icon={publicToken ? <Globe /> : <LockSimple />}
+              icon={linkToken ? <Globe /> : <LockSimple />}
               title={
                 sharing.isPending ? <Skeleton className="h-5 w-32" /> : (
-                  <Select value={publicToken ? "public" : "restricted"} disabled={busy === "public" || sharing.isError} onValueChange={(value) => void setPublic(value === "public")}>
+                  <Select value={linkToken ? "anyone" : "restricted"} disabled={busy === "link" || sharing.isError} onValueChange={(value) => void setGeneralAccess(value === "anyone")}>
                     <SelectTrigger size="sm" aria-label="General access" className="-ml-2 h-7 w-auto border-none bg-transparent px-2 font-medium shadow-none hover:bg-muted dark:bg-transparent">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
-                        <SelectItem value="restricted" description="Only people with access can open it">Restricted</SelectItem>
-                        <SelectItem value="public" description="Anyone on the internet can view the links and notes, no sign-in">Anyone with the link</SelectItem>
+                        <SelectItem value="restricted" description="Only people with access can open with the link">Restricted</SelectItem>
+                        <SelectItem value="anyone" description="Anyone on the internet with the link can open it">Anyone with the link</SelectItem>
                       </SelectGroup>
                     </SelectContent>
                   </Select>
                 )
               }
               subline={
-                sharing.isError ? "Could not load public access." : publicToken ? (
+                sharing.isError ? "Could not load general access." : linkToken ? (
                   <Actions>
-                    <span>Can view links and notes, no sign-in needed</span>
-                    <TextAction label="Copy public link" onClick={() => void copy(publicUrl, "Public link copied")}>Copy link</TextAction>
+                    <span>{linkAccess[linkRole]}</span>
+                    <ExpirySelect
+                      expiresAt={sharing.data?.expiresAt}
+                      disabled={busy === "link"}
+                      label="When the link expires"
+                      onChange={(days) => void changeLinkExpiry(days)}
+                    />
                   </Actions>
-                ) : "Only people with access can open it"
+                ) : "Only people with access can open with the link"
               }
+              action={linkToken ? (
+                <RoleSelect
+                  value={linkRole}
+                  label="Role for anyone with the link"
+                  disabled={busy === "link"}
+                  onChange={(role) => void changeLinkRole(role)}
+                />
+              ) : undefined}
             />
-            {collaboration.isSuccess && (
+            {data?.inviteEnabled && (
+              // Separate invite links came before General access; offer to retire any still on.
               <AccessRow
                 icon={<LinkIcon />}
-                title={<span className="font-medium">Invite link</span>}
+                title={<span className="font-medium">Older invite link</span>}
                 subline={
                   <Actions>
-                    <span>{data!.inviteEnabled ? "On, joins after sign-in" : "Off"}</span>
-                    {data!.inviteEnabled ? (
-                      <>
-                        {inviteUrl
-                          ? <TextAction onClick={() => void copy(inviteUrl, "Invite link copied")} label="Copy invite link">Copy link</TextAction>
-                          : <TextAction onClick={() => void createInvite(inviteRole)} disabled={busy === "invite"} label="Create a new invite link">New link</TextAction>}
-                        <TextAction onClick={() => void turnOffInvite()} disabled={busy === "invite"}>Turn off</TextAction>
-                      </>
-                    ) : (
-                      <TextAction onClick={() => void createInvite(inviteRole)} disabled={busy === "invite"} label="Create invite link">Create link</TextAction>
-                    )}
+                    <span>Still lets people join</span>
+                    <TextAction onClick={() => void turnOffOldInvite()} disabled={busy === "invite"}>Turn off</TextAction>
                   </Actions>
-                }
-                action={
-                  <RoleSelect
-                    value={inviteRole}
-                    label="Role for people who join with the link"
-                    disabled={busy === "invite"}
-                    onChange={(role) => { if (data!.inviteEnabled) void changeInviteRole(role); else setDraftInviteRole(role) }}
-                  />
                 }
               />
             )}
           </ul>
         </section>
 
-        <DialogFooter className="items-center sm:justify-between">
-          <p className="text-xs text-muted-foreground">Links, notes, and drawings are shared. Subfolders stay private.</p>
+        <DialogFooter className="flex-row items-center justify-between sm:justify-between">
+          <Button variant="outline" disabled={sharing.isPending} onClick={() => void copy(link, linkToken ? "Link copied" : "Link copied. Only people with access can open it.")}>
+            <LinkIcon data-icon="inline-start" />Copy link
+          </Button>
           <Button onClick={() => setOpen(false)}>Done</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   )
+}
+
+function toSharing(data: Sharing): Sharing {
+  return { shareToken: data.shareToken, expiresAt: data.expiresAt ?? null, role: data.role ?? "VIEWER" }
 }

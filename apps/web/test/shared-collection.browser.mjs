@@ -9,7 +9,7 @@ import tailwind from "@tailwindcss/postcss"
 import { chromium, expect } from "@playwright/test"
 
 const root = fileURLToPath(new URL("../", import.meta.url))
-let script = "", styles = "", copyStatus = 500, copyCalls = 0
+let script = "", styles = "", copyStatus = 500, copyCalls = 0, signedIn = true, joinStatus = 200, joinCalls = 0
 const signRequests = []
 const folderId = "11111111-1111-4111-8111-111111111111"
 const server = createServer((req, res) => {
@@ -30,6 +30,15 @@ const server = createServer((req, res) => {
     const height = req.url.includes("color") ? 300 : 150
     res.setHeader("Content-Type", "image/svg+xml")
     res.end(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="${height}"><rect width="400" height="${height}" fill="${height === 300 ? '#cbd5c3' : '#c4cbd4'}"/></svg>`)
+  } else if (req.url === "/v1/auth/me") {
+    res.writeHead(signedIn ? 200 : 401, { "Content-Type": "application/json" })
+    res.end(JSON.stringify(signedIn ? { id: "member", email: "member@example.com", name: "Member" } : { error: { code: "UNAUTHORIZED" } }))
+  } else if (req.url.endsWith("/join") && req.method === "POST") {
+    joinCalls++
+    res.writeHead(joinStatus, { "Content-Type": "application/json" })
+    res.end(JSON.stringify({ folderId }))
+  } else if (req.url.startsWith("/cabinet/folders/")) {
+    res.end("<!doctype html><title>Folder</title><p>Joined folder</p>")
   } else if (req.url.endsWith("/copy") && req.method === "POST") {
     copyCalls++
     setTimeout(() => { res.writeHead(copyStatus, { "Content-Type": "application/json" }); res.end(JSON.stringify({ folderId: folderId, copied: 4 })) }, 300)
@@ -106,9 +115,57 @@ try {
   copyStatus = 401
   await page.reload()
   await page.getByRole("button", { name: "Copy Collection", exact: true }).click()
-  await page.waitForURL(`${origin}/login?next=${encodeURIComponent(path)}`)
+  await page.waitForURL(`${origin}/login?next=${encodeURIComponent(`${path}?save=1`)}`)
+
+  // Visitors learn up front that saving needs a (free) sign-in, and come back to finish it.
+  signedIn = false
+  await page.goto(`${origin}${path}`)
+  const signInToSave = page.getByRole("link", { name: "Sign in to save" })
+  await expect(signInToSave).toHaveAttribute("href", `/login?next=${encodeURIComponent(`${path}?save=1`)}`)
+  await expect(page.getByText("Free with GitHub or Google. Saves all 4 items as a private copy.", { exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Copy Collection" })).toHaveCount(0)
+  // A guest arriving with ?save=1 (sign-in cancelled) copies nothing.
+  const callsBeforeGuest = copyCalls
+  await page.goto(`${origin}${path}?save=1`)
+  await expect(signInToSave).toBeVisible()
+  await expect.poll(() => new URL(page.url()).search).toBe("")
+  assert.equal(copyCalls, callsBeforeGuest)
+
+  // Back from sign-in, the save finishes by itself, once, and the flag leaves the URL.
+  signedIn = true
+  copyStatus = 200
+  const callsBeforeReturn = copyCalls
+  await page.goto(`${origin}${path}?save=1`)
+  await expect(page.getByRole("link", { name: "Open copied collection" })).toBeVisible()
+  await expect.poll(() => new URL(page.url()).search).toBe("")
+  assert.equal(copyCalls, callsBeforeReturn + 1)
+  await page.reload()
+  await expect(page.getByRole("button", { name: "Copy Collection", exact: true })).toBeVisible()
+  assert.equal(copyCalls, callsBeforeReturn + 1)
+
+  // Editor links, like Google Drive: signed-in visitors join and land in the folder.
+  const editorPath = `${path}?role=EDITOR`
+  await page.goto(`${origin}${editorPath}`)
+  await expect(page.getByRole("button", { name: "Copy Collection" })).toHaveCount(0)
+  joinStatus = 404
+  await page.getByRole("button", { name: "Join to edit", exact: true }).click()
+  await expect(page.getByRole("alert")).toHaveText("This link no longer works. Ask the owner for a new one.")
+  joinStatus = 200
+  await page.getByRole("button", { name: "Join to edit", exact: true }).click()
+  await page.waitForURL(`${origin}/cabinet/folders/${folderId}`)
+
+  // Visitors sign in first, then the join finishes by itself.
+  signedIn = false
+  await page.goto(`${origin}${editorPath}`)
+  await expect(page.getByRole("link", { name: "Sign in to join" })).toHaveAttribute("href", `/login?next=${encodeURIComponent(`${path}?join=1`)}`)
+  await expect(page.getByText(/^Free with GitHub or Google\. You'll join as an editor/)).toBeVisible()
+  signedIn = true
+  const joinsBefore = joinCalls
+  await page.goto(`${origin}${editorPath}&join=1`)
+  await page.waitForURL(`${origin}/cabinet/folders/${folderId}`)
+  assert.equal(joinCalls, joinsBefore + 1)
   assert.equal(errors.length, 0, errors.join("\n"))
-  console.log("PASS shared collection: grid/list, search, clear/no-results, copy/retry, full-copy semantics, duplicate-click guard, revoked shares, login return, mobile and dark mode")
+  console.log("PASS shared collection: grid/list, search, clear/no-results, copy/retry, full-copy semantics, duplicate-click guard, revoked shares, login return, sign-in to save, auto-save after sign-in, joining editor links, mobile and dark mode")
 } finally {
   await browser.close()
   await new Promise((resolve) => server.close(resolve))

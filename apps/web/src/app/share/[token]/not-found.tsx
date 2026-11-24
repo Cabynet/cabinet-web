@@ -20,7 +20,7 @@ export default function SharedCollectionNotFound() {
           </EmptyMedia>
           <EmptyTitle>Collection unavailable</EmptyTitle>
           <EmptyDescription>
-            This link may have been turned off by the owner, or the collection was removed.
+            This link may have expired or been turned off by the owner, or the collection was removed.
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>

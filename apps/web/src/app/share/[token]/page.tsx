@@ -2,8 +2,8 @@ import { cache } from "react"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
-import { sharedCollectionItems, type SharedCollection } from "@/lib/shared-collection"
-import { SharedCollectionBrowser } from "./shared-collection-browser"
+import { sharedCollectionItems, type SharedCollection, type SharedLinkRole } from "@/lib/shared-collection"
+import { SharedCollectionAccount, SharedCollectionBrowser } from "./shared-collection-browser"
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"
 
@@ -12,8 +12,9 @@ const getSharedCollection = cache(async (token: string): Promise<SharedCollectio
   const response = await fetch(`${apiUrl}/v1/share/${token}`, { cache: "no-store" })
   if (response.status === 404) return null
   if (!response.ok) throw new Error("Failed to load shared collection")
-  const payload = await response.json() as { folder: { name: string }; bookmarks: Array<{ id: string; rawUrl: string; title: string; description: string | null; thumbnailUrl: string | null }> }
-  return { name: payload.folder.name, bookmarks: payload.bookmarks.map((item) => ({ id: item.id, url: item.rawUrl, title: item.title, description: item.description, imageUrl: item.thumbnailUrl })) }
+  const payload = await response.json() as { folder: { name: string }; role?: SharedLinkRole; bookmarks: Array<{ id: string; rawUrl: string; title: string; description: string | null; thumbnailUrl: string | null }> }
+  const role = payload.role === "CONTRIBUTOR" || payload.role === "EDITOR" ? payload.role : "VIEWER"
+  return { name: payload.folder.name, role, bookmarks: payload.bookmarks.map((item) => ({ id: item.id, url: item.rawUrl, title: item.title, description: item.description, imageUrl: item.thumbnailUrl })) }
 })
 
 export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
@@ -42,13 +43,16 @@ export default async function SharedCollectionPage({ params }: { params: Promise
     <main className="mx-auto flex min-h-[100dvh] max-w-6xl flex-col px-6 sm:px-10">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border py-6">
         <Link href="/" className="font-serif text-2xl">Cabinet</Link>
-        <span className="text-xs text-muted-foreground">Shared collection · Read only</span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">{collection.role === "VIEWER" ? "Shared collection · Read only" : "Shared collection"}</span>
+          <SharedCollectionAccount token={token} />
+        </div>
       </header>
       <section className="flex flex-col gap-3 border-b border-border py-10">
         <p className="text-xs text-muted-foreground">{total} item{total === 1 ? "" : "s"}</p>
         <h1 className="max-w-4xl break-words font-serif text-4xl leading-tight tracking-tight sm:text-5xl">{collection.name}</h1>
       </section>
-      <SharedCollectionBrowser token={token} items={items} />
+      <SharedCollectionBrowser token={token} items={items} role={collection.role} />
     </main>
   )
 }

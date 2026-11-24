@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ArrowSquareOut, Copy, FolderSimple, List, MagnifyingGlass, SquaresFour, X } from "@phosphor-icons/react"
+import { ArrowSquareOut, Copy, FolderSimple, List, MagnifyingGlass, SignIn, SquaresFour, UsersThree, X } from "@phosphor-icons/react"
 import { Button } from "@/components/ui/button"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
@@ -9,10 +9,52 @@ import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/
 import { Masonry, MasonryItem } from "@/components/ui/masonry"
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
-import type { SharedCollectionItem } from "@/lib/shared-collection"
+import type { SharedCollectionItem, SharedLinkRole } from "@/lib/shared-collection"
 import { useProxiedImageUrl } from "@/lib/signed-proxy"
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"
+
+type Viewer = "unknown" | "guest" | "member"
+
+// One session check per page, shared by the header and the save button.
+let viewerRequest: Promise<Viewer> | null = null
+function loadViewer(): Promise<Viewer> {
+  viewerRequest ??= fetch(`${apiUrl}/v1/auth/me`, { credentials: "include" })
+    .then(async (response) => {
+      if (!response.ok) return "guest" as const
+      const user = await response.json().catch(() => null) as { id?: unknown } | null
+      return typeof user?.id === "string" ? "member" as const : "guest" as const
+    })
+    // If the check fails, keep the button that discovers sign-in on click.
+    .catch(() => "unknown" as const)
+  return viewerRequest
+}
+
+function useViewer() {
+  const [viewer, setViewer] = React.useState<Viewer>("unknown")
+  React.useEffect(() => {
+    let active = true
+    void loadViewer().then((value) => { if (active) setViewer(value) })
+    return () => { active = false }
+  }, [])
+  return viewer
+}
+
+/** Login returns here with ?save=1 or ?join=1 so the action finishes without a second click. */
+const afterLogin = (token: string, action: "save" | "join") => `/login?next=${encodeURIComponent(`/share/${token}?${action}=1`)}`
+
+const joinLabel: Record<Exclude<SharedLinkRole, "VIEWER">, { action: string; hint: string }> = {
+  CONTRIBUTOR: { action: "Join to add items", hint: "You'll join as a contributor and see this folder in your Cabinet." },
+  EDITOR: { action: "Join to edit", hint: "You'll join as an editor and see this folder in your Cabinet." },
+}
+
+/** Header link: sign in for visitors, back to the library for members. */
+export function SharedCollectionAccount({ token }: { token: string }) {
+  const viewer = useViewer()
+  if (viewer === "member") return <Button asChild variant="ghost" size="sm"><a href="/cabinet">Open my Cabinet</a></Button>
+  if (viewer === "guest") return <Button asChild variant="ghost" size="sm"><a href={`/login?next=${encodeURIComponent(`/share/${token}`)}`}>Sign in</a></Button>
+  return null
+}
 
 function SharedBookmarkLink({ item, view, token }: { item: SharedCollectionItem; view: "grid" | "list"; token: string }) {
   const [imageFailed, setImageFailed] = React.useState(false)
@@ -44,7 +86,7 @@ function SharedBookmarkLink({ item, view, token }: { item: SharedCollectionItem;
   )
 }
 
-export function SharedCollectionBrowser({ token, items }: { token: string; items: SharedCollectionItem[] }) {
+export function SharedCollectionBrowser({ token, items, role = "VIEWER" }: { token: string; items: SharedCollectionItem[]; role?: SharedLinkRole }) {
   const [query, setQuery] = React.useState("")
   const [view, setView] = React.useState<"grid" | "list">("grid")
   const [columns, setColumns] = React.useState(1)
@@ -57,6 +99,11 @@ export function SharedCollectionBrowser({ token, items }: { token: string; items
   const filtered = React.useMemo(() => items.filter((item) => item.searchText.includes(search)), [items, search])
   const total = items.length
   const shown = filtered.length
+  const viewer = useViewer()
+  const autoAction = React.useRef(false)
+  const joins = role !== "VIEWER" ? joinLabel[role] : null
+  const [isJoining, setIsJoining] = React.useState(false)
+  const [joinError, setJoinError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     const container = containerRef.current
@@ -78,7 +125,7 @@ export function SharedCollectionBrowser({ token, items }: { token: string; items
         method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: "{}",
       })
       if (response.status === 401) {
-        window.location.assign(`/login?next=${encodeURIComponent(`/share/${token}`)}`)
+        window.location.assign(afterLogin(token, "save"))
         return
       }
       if (response.status === 404) throw new Error("This collection is no longer shared. Reload the page to check its availability.")
@@ -95,6 +142,42 @@ export function SharedCollectionBrowser({ token, items }: { token: string; items
     }
   }
 
+  async function joinFolder() {
+    if (isJoining) return
+    setIsJoining(true)
+    setJoinError(null)
+    try {
+      const response = await fetch(`${apiUrl}/v1/share/${token}/join`, { method: "POST", credentials: "include" })
+      if (response.status === 401) {
+        window.location.assign(afterLogin(token, "join"))
+        return
+      }
+      if (response.status === 404) throw new Error("This link no longer works. Ask the owner for a new one.")
+      if (!response.ok) throw new Error("Could not join this folder. Please try again.")
+      const { folderId } = await response.json() as { folderId?: unknown }
+      if (typeof folderId !== "string" || !/^[a-f0-9-]{36}$/i.test(folderId)) throw new Error("Could not open the folder. Please reload your Cabinet.")
+      // A full navigation gives Cabinet a fresh query cache that includes the joined folder.
+      window.location.assign(`/cabinet/folders/${folderId}`)
+    } catch (error) {
+      setJoinError(error instanceof Error ? error.message : "Could not join this folder. Please try again.")
+      setIsJoining(false)
+    }
+  }
+
+  // Back from sign-in with ?save=1 or ?join=1: drop the flag and finish what the visitor asked for.
+  React.useEffect(() => {
+    if (viewer === "unknown" || autoAction.current) return
+    const url = new URL(window.location.href)
+    const action = url.searchParams.get("save") === "1" ? "save" : url.searchParams.get("join") === "1" ? "join" : null
+    if (!action) return
+    autoAction.current = true
+    url.searchParams.delete(action)
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
+    if (viewer !== "member") return
+    if (action === "join" && joins) void joinFolder()
+    if (action === "save" && !joins) void copyCollection()
+  })
+
   return (
     <section ref={containerRef} className="flex flex-1 flex-col gap-6 py-6 sm:py-8" aria-label="Shared bookmarks">
       <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:flex-wrap">
@@ -110,10 +193,28 @@ export function SharedCollectionBrowser({ token, items }: { token: string; items
             <ToggleGroupItem value="list" aria-label="List view"><List /><span className="sr-only">List</span></ToggleGroupItem>
           </ToggleGroup>
         </div>
+        {joins ? (
+          <div className="flex max-w-full flex-col items-start gap-2 sm:items-end">
+            {viewer === "guest" ? (
+              <Button asChild><a href={afterLogin(token, "join")}><SignIn data-icon="inline-start" />Sign in to join</a></Button>
+            ) : (
+              <Button onClick={joinFolder} disabled={isJoining} aria-busy={isJoining}>
+                {isJoining ? <Spinner data-icon="inline-start" aria-hidden="true" /> : <UsersThree data-icon="inline-start" />}
+                {isJoining ? "Joining…" : joins.action}
+              </Button>
+            )}
+            {joinError && <p role="alert" className="max-w-sm text-xs text-destructive">{joinError}</p>}
+            <p className="max-w-sm text-xs text-muted-foreground sm:text-right">
+              {viewer === "guest" ? `Free with GitHub or Google. ${joins.hint}` : joins.hint}
+            </p>
+          </div>
+        ) : (
         <div className="flex max-w-full flex-col items-start gap-2 sm:items-end">
           {copied ? (
             // A full navigation gives Cabinet a fresh query cache after copying.
             <Button asChild><a href={`/cabinet?folder=${copied.folderId}`}>Open copied collection<ArrowSquareOut data-icon="inline-end" /></a></Button>
+          ) : viewer === "guest" ? (
+            <Button asChild><a href={afterLogin(token, "save")}><SignIn data-icon="inline-start" />Sign in to save</a></Button>
           ) : (
             <Button onClick={copyCollection} disabled={isCopying} aria-busy={isCopying}>
               {isCopying ? <Spinner data-icon="inline-start" aria-hidden="true" /> : <Copy data-icon="inline-start" />}
@@ -122,9 +223,14 @@ export function SharedCollectionBrowser({ token, items }: { token: string; items
           )}
           {copyError && <p role="alert" className="max-w-sm text-xs text-destructive">{copyError}</p>}
           <p className="text-xs text-muted-foreground" role={copied ? "status" : undefined}>
-            {copied ? `${copied.count} ${copied.count === 1 ? "item" : "items"} copied to your Cabinet.` : `Save all ${total} ${total === 1 ? "item" : "items"} as a private copy.`}
+            {copied
+              ? `${copied.count} ${copied.count === 1 ? "item" : "items"} copied to your Cabinet.`
+              : viewer === "guest"
+                ? `Free with GitHub or Google. Saves all ${total} ${total === 1 ? "item" : "items"} as a private copy.`
+                : `Save all ${total} ${total === 1 ? "item" : "items"} as a private copy.`}
           </p>
         </div>
+        )}
       </div>
       <p role="status" aria-live="polite" className="text-xs text-muted-foreground">
         {search ? `${shown} of ${total}` : total} item{(search ? shown : total) === 1 ? "" : "s"}

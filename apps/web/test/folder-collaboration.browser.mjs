@@ -8,7 +8,7 @@ const token = "a".repeat(64)
 const folderId = "11111111-1111-4111-8111-111111111111"
 const browser = await chromium.launch({ headless: true })
 try {
-  const context = await browser.newContext()
+  const context = await browser.newContext({ permissions: ["clipboard-read", "clipboard-write"] })
   const page = await context.newPage()
   const errors = []
   page.on("pageerror", (error) => errors.push(error.message))
@@ -17,6 +17,10 @@ try {
   let inviteEnabled = false
   let inviteRole = "CONTRIBUTOR"
   let shareToken = null
+  let shareExpiresAt = null
+  let shareRole = "VIEWER"
+  let inviteExpiresAt = null
+  const inDays = (days) => days == null ? null : new Date(Date.now() + days * 86400000).toISOString()
   let members = []
   const writes = []
   await page.route("**/v1/**", async (route) => {
@@ -30,11 +34,11 @@ try {
     if (method !== "GET") writes.push({ method, path, body })
     if (path.endsWith("/auth/me")) return signedIn ? response({ id: "owner", name: "Test owner", email: "owner@example.com", avatarUrl: null, session: { id: "test", expiresAt: "2099-01-01T00:00:00Z" } }) : response({ error: { code: "UNAUTHORIZED", message: "Authentication required" } }, 401)
     if (path.endsWith(`/invitations/${token}/accept`)) return response({ data: { folderId } }, joinStatus)
-    if (path.endsWith("/collaboration")) return response({ data: { owner: { id: "owner", name: "Test owner", email: "owner@example.com" }, inviteEnabled, inviteRole, members } })
+    if (path.endsWith("/collaboration")) return response({ data: { owner: { id: "owner", name: "Test owner", email: "owner@example.com" }, inviteEnabled, inviteRole, inviteExpiresAt, inviteToken: inviteEnabled ? token : null, members } })
     if (path.endsWith("/invitation")) {
-      if (method === "PUT") { inviteEnabled = true; inviteRole = body?.role ?? inviteRole }
-      if (method === "PATCH") inviteRole = body.role
-      if (method === "DELETE") inviteEnabled = false
+      if (method === "PUT") { inviteEnabled = true; inviteRole = body?.role ?? inviteRole; inviteExpiresAt = null }
+      if (method === "PATCH") { inviteRole = body.role ?? inviteRole; if ("expiresInDays" in body) inviteExpiresAt = inDays(body.expiresInDays) }
+      if (method === "DELETE") { inviteEnabled = false; inviteExpiresAt = null }
       return response({ data: { token, inviteEnabled, inviteRole } })
     }
     if (path.endsWith(`/folders/${folderId}/members`) && method === "POST") {
@@ -48,9 +52,10 @@ try {
       return response({ data: {} })
     }
     if (path.endsWith("/share")) {
-      if (method === "PUT" || method === "POST") shareToken = "b".repeat(64)
-      if (method === "DELETE") shareToken = null
-      return response({ data: { shareToken } })
+      if (method === "PUT" || method === "POST") { shareToken = "b".repeat(64); shareExpiresAt = null; shareRole = body?.role ?? "VIEWER" }
+      if (method === "PATCH") { shareRole = body.role ?? shareRole; if ("expiresInDays" in body) shareExpiresAt = inDays(body.expiresInDays) }
+      if (method === "DELETE") { shareToken = null; shareExpiresAt = null; shareRole = "VIEWER" }
+      return response({ data: { shareToken, expiresAt: shareExpiresAt, role: shareRole } })
     }
     if (path.endsWith("/folders")) return response({ data: [{ id: folderId, userId: "owner", isOwner: true, access: "OWNER", name: "Team links", parentId: null }] })
     if (path.endsWith("/bookmarks")) return response({ items: [], totalCount: 0, nextCursor: null, hasMore: false })
@@ -94,25 +99,74 @@ try {
   await expect(friendRole).toHaveText("Viewer")
   assert.deepEqual(writes.at(-1).body, { role: "VIEWER" })
 
-  // Choosing a role for a link that does not exist yet must not create one.
-  const writesBeforeRole = writes.length
-  await dialog.getByRole("combobox", { name: "Role for people who join with the link" }).click()
-  await page.getByRole("option", { name: "Editor" }).click()
-  assert.equal(writes.length, writesBeforeRole)
-  await dialog.getByRole("button", { name: "Create invite link", exact: true }).click()
-  await expect(dialog.getByRole("button", { name: "Copy invite link", exact: true })).toBeVisible()
-  assert.deepEqual(writes.at(-1), { method: "PUT", path: `/v1/folders/${folderId}/invitation`, body: { role: "EDITOR" } })
-  await dialog.getByRole("button", { name: "Turn off", exact: true }).click()
-  await expect(dialog.getByRole("button", { name: "Copy invite link", exact: true })).toHaveCount(0)
-  await expect(dialog.getByRole("button", { name: "Create invite link", exact: true })).toBeVisible()
+  // General access, like Google Drive: one link, Restricted or Anyone with the link plus a role.
+  const generalAccess = dialog.getByRole("combobox", { name: "General access" })
+  const copyLink = dialog.getByRole("button", { name: "Copy link", exact: true })
+  const clipboard = () => page.evaluate(() => navigator.clipboard.readText())
+  await expect(generalAccess).toHaveText("Restricted")
+  await expect(dialog).toContainText("Only people with access can open with the link")
+  await expect(dialog.getByRole("combobox", { name: "Role for anyone with the link" })).toHaveCount(0)
+  // Restricted still has a link: the folder itself, for people with access.
+  await copyLink.click()
+  await expect.poll(clipboard).toBe(`${origin}/cabinet/folders/${folderId}`)
 
-  await dialog.getByRole("combobox", { name: "General access" }).click()
+  await generalAccess.click()
   await page.getByRole("option", { name: "Anyone with the link" }).click()
-  await expect(dialog.getByRole("button", { name: "Copy public link", exact: true })).toBeVisible()
+  assert.deepEqual(writes.at(-1), { method: "POST", path: `/v1/folders/${folderId}/share`, body: { role: "VIEWER" } })
+  await expect(generalAccess).toHaveText("Anyone with the link")
+  await expect(dialog).toContainText("Anyone with the link can view, no sign-in needed")
+  await copyLink.click()
+  await expect.poll(clipboard).toBe(`${origin}/share/${"b".repeat(64)}`)
+
+  // The link's role changes what it allows, without changing the link.
+  const linkRole = dialog.getByRole("combobox", { name: "Role for anyone with the link" })
+  await expect(linkRole).toHaveText("Viewer")
+  await linkRole.click()
+  await page.getByRole("option", { name: "Editor" }).click()
+  assert.deepEqual(writes.at(-1), { method: "PATCH", path: `/v1/folders/${folderId}/share`, body: { role: "EDITOR" } })
+  await expect(linkRole).toHaveText("Editor")
+  await expect(dialog).toContainText("people who sign in can add and edit")
+  await copyLink.click()
+  await expect.poll(clipboard).toBe(`${origin}/share/${"b".repeat(64)}`)
+
+  // A link never expires until the owner picks a duration; picking one keeps the role.
+  const linkExpiry = dialog.getByRole("combobox", { name: "When the link expires" })
+  await expect(linkExpiry).toHaveText("Never expires")
+  await linkExpiry.click()
+  await page.getByRole("option", { name: "In 30 days" }).click()
+  assert.deepEqual(writes.at(-1), { method: "PATCH", path: `/v1/folders/${folderId}/share`, body: { expiresInDays: 30 } })
+  await expect(linkExpiry).toHaveText(/^Expires in (30|29) days$/)
+  await expect(linkRole).toHaveText("Editor")
+  await linkExpiry.click()
+  await page.getByRole("option", { name: "Never" }).click()
+  assert.deepEqual(writes.at(-1).body, { expiresInDays: null })
+  await expect(linkExpiry).toHaveText("Never expires")
+
+  // The setting survives closing and reopening the dialog.
+  await page.keyboard.press("Escape")
+  await expect(dialog).toBeHidden()
+  await page.getByRole("button", { name: "Share", exact: true }).click()
+  await expect(generalAccess).toHaveText("Anyone with the link")
+  await expect(linkRole).toHaveText("Editor")
+
+  // A separate invite link from before General access can be turned off.
+  inviteEnabled = true
+  await friendRole.click()
+  await page.getByRole("option", { name: "Contributor" }).click()
+  await expect(dialog).toContainText("Older invite link")
+  await dialog.getByRole("button", { name: "Turn off", exact: true }).click()
+  assert.deepEqual(writes.at(-1), { method: "DELETE", path: `/v1/folders/${folderId}/invitation`, body: undefined })
+  await expect(dialog).not.toContainText("Older invite link")
 
   await friendRole.click()
   await page.getByRole("option", { name: "Remove access" }).click()
   await expect(dialog.getByRole("combobox", { name: "Access for Friend" })).toHaveCount(0)
+  // An editor link still lets them back in, so the owner is told how to stop that.
+  await expect(page.getByText(/Anyone with the link can still join/)).toBeVisible()
+  await generalAccess.click()
+  await page.getByRole("option", { name: "Restricted" }).click()
+  assert.deepEqual(writes.at(-1), { method: "DELETE", path: `/v1/folders/${folderId}/share`, body: undefined })
+  await expect(dialog.getByRole("combobox", { name: "Role for anyone with the link" })).toHaveCount(0)
   assert.deepEqual(errors, [])
-  console.log("PASS invitation sign-in, invalid/revoked handling, acceptance redirect, sharing by email with roles, role changes, role-based invite link, public access, and removal")
+  console.log("PASS invitation sign-in, invalid/revoked handling, acceptance redirect, sharing by email with roles, role changes, general access with link roles, copy link, link expiry, older invite links, and removal")
 } finally { await browser.close() }

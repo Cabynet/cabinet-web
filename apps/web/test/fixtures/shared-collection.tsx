@@ -15,7 +15,8 @@ createRoot(document.getElementById("root")!).render(
       <main className="mx-auto flex min-h-[100dvh] max-w-6xl flex-col px-6 sm:px-10">
         <header className="flex justify-between border-b border-border py-6"><span className="font-mono text-sm font-semibold tracking-widest uppercase">Cabinet</span><span className="font-mono text-xs text-muted-foreground">Shared collection · Read only</span></header>
         <section className="flex flex-col gap-3 border-b border-border py-10"><p className="font-mono text-xs text-muted-foreground">4 BOOKMARKS</p><h1 className="font-serif text-4xl sm:text-5xl">Visual references</h1></section>
-        <SharedCollectionBrowser token={"a".repeat(64)} items={items} />
+        {/* ?role=EDITOR renders the page for a link that lets signed-in visitors join. */}
+        <SharedCollectionBrowser token={"a".repeat(64)} items={items} role={(new URLSearchParams(location.search).get("role") as "EDITOR" | null) ?? "VIEWER"} />
       </main>
   </React.StrictMode>,
 )
