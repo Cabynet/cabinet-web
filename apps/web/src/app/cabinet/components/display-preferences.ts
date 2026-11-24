@@ -18,6 +18,8 @@ export interface DisplayPreferences {
   showWebsite: boolean
   showFolder: boolean
   showDate: boolean
+  /** Clicking a link card opens the original page in a new tab instead of the preview. */
+  openLinksDirectly: boolean
 }
 
 export const defaultDisplayPreferences: DisplayPreferences = {
@@ -28,6 +30,7 @@ export const defaultDisplayPreferences: DisplayPreferences = {
   showWebsite: true,
   showFolder: true,
   showDate: true,
+  openLinksDirectly: false,
 }
 
 /** Only Compact lets people pick which details show; the other densities have a fixed layout. */
@@ -35,7 +38,7 @@ export const hasVisibleDetails = (density: Density) => density === "compact"
 
 /** The preferences cards actually render with: visibility choices apply in Compact only, and are kept for when it's chosen again. */
 export const effectiveDisplayPreferences = (preferences: DisplayPreferences): DisplayPreferences =>
-  hasVisibleDetails(preferences.density) ? preferences : { ...defaultDisplayPreferences, density: preferences.density }
+  hasVisibleDetails(preferences.density) ? preferences : { ...defaultDisplayPreferences, density: preferences.density, openLinksDirectly: preferences.openLinksDirectly }
 
 /** Phones start in Compact (two columns) so more of the library fits on screen; a saved choice always wins. */
 export const deviceDefaultDisplayPreferences = (): DisplayPreferences =>

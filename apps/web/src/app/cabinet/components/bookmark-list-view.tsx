@@ -77,6 +77,7 @@ export function BookmarkListView({
               selectionMode: selectedBookmarkIds.length > 0,
               onToggleSelect: () => onToggleSelect(bookmark.id),
               onOpen: () => (onInspectBookmark ?? onEditBookmark)(bookmark),
+              openDirectly: preferences.openLinksDirectly,
             })
           const date = bookmark.createdAt ? new Date(bookmark.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : ""
           return (

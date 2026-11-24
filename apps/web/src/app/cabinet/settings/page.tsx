@@ -185,6 +185,15 @@ export default function SettingsPage() {
               <p className="text-xs text-muted-foreground">Visual shows previews edge to edge with just the title, like a gallery. Choose Compact to pick which details appear on cards.</p>
             </div>
           </SettingsSection>
+          <SettingsSection title="Opening items" description="What a click on a card does. Notes and drawings always open in Cabinet; ⌘/Ctrl-click always opens the original.">
+            <div className="flex flex-col gap-2"><p className="text-sm font-medium">Click a link card to</p>
+              <ToggleGroup type="single" variant="outline" value={displayPrefs.openLinksDirectly ? "link" : "preview"} onValueChange={(value) => { if (value) handlePrefToggle("openLinksDirectly", value === "link") }} aria-label="Click a link card to">
+                <ToggleGroupItem value="preview" className="min-h-11">Open preview</ToggleGroupItem>
+                <ToggleGroupItem value="link" className="min-h-11">Open link</ToggleGroupItem>
+              </ToggleGroup>
+              <p className="text-xs text-muted-foreground">{displayPrefs.openLinksDirectly ? "The original page opens in a new tab." : "Details and a preview open beside your library."}</p>
+            </div>
+          </SettingsSection>
           {hasVisibleDetails(displayPrefs.density) && <SettingsSection title="Visible details" description="Keep the details you use and hide the rest. Your saved content is never changed.">
             <div className="flex flex-col divide-y divide-border/70">
               {([ ["showImage", "Preview image", "The website preview, when available."], ["showTitle", "Title", "The saved or custom title."], ["showDescription", "Description", "A short excerpt below the title."], ["showWebsite", "Website", "The original website domain."], ["showFolder", "Folder", "Where the item is filed."], ["showDate", "Date added", "When you saved the item."] ] as const).map(([key, label, description]) => <div key={key} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">

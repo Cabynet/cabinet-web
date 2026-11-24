@@ -1,6 +1,6 @@
 import type React from "react"
-import { editorPath } from "./bookmark-kind"
-import { safeHttpUrl } from "./shared-collection"
+import { editorPath } from "./bookmark-kind.ts"
+import { safeHttpUrl } from "./shared-collection.ts"
 
 /** Where ⌘/Ctrl-click sends an item: the original page, or the note editor. */
 export function bookmarkOriginalHref(bookmark: { id: string; url?: string | null; type?: string | null }) {
@@ -9,8 +9,8 @@ export function bookmarkOriginalHref(bookmark: { id: string; url?: string | null
 
 /**
  * One click rule for every part of a saved item:
- * click opens it in Cabinet, Shift-click (or any click while selecting) toggles selection,
- * and ⌘/Ctrl-click opens the original in a new tab.
+ * click opens it in Cabinet (or, with openDirectly, a link's original page in a new tab),
+ * Shift-click (or any click while selecting) toggles selection, and ⌘/Ctrl-click opens the original in a new tab.
  */
 export function activateBookmark(
   event: React.MouseEvent,
@@ -19,11 +19,13 @@ export function activateBookmark(
     selectionMode,
     onToggleSelect,
     onOpen,
+    openDirectly = false,
   }: {
     bookmark: { id: string; url?: string | null; type?: string | null }
     selectionMode: boolean
     onToggleSelect: () => void
     onOpen: () => void
+    openDirectly?: boolean
   }
 ) {
   event.stopPropagation()
@@ -41,5 +43,8 @@ export function activateBookmark(
     return
   }
   event.preventDefault()
-  onOpen()
+  // Notes and drawings have no original page, so they still open in Cabinet.
+  const href = openDirectly && !editorPath(bookmark) ? safeHttpUrl(bookmark.url || "")?.href : undefined
+  if (href) window.open(href, "_blank", "noopener,noreferrer")
+  else onOpen()
 }

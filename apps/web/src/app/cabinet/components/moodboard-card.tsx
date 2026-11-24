@@ -122,6 +122,7 @@ export function MoodboardCard({
       selectionMode: hasSelectedItems,
       onToggleSelect,
       onOpen: () => (onInspectBookmark ?? onEditBookmark)(bookmark),
+      openDirectly: preferences.openLinksDirectly,
     })
 
   const cleanHost = hostname.replace(/^www\./, "")
