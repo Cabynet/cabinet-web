@@ -1,7 +1,7 @@
 // Cabinet location <-> filters. Primary location lives in the path
 // (/cabinet/favorites, /cabinet/folders/<id>, /cabinet/tags/<name>);
 // secondary refinements stay in the query (?tag, ?format, ?q, ?sort).
-export const cabinetViews = ["favorites", "archive", "trash", "broken", "duplicates"] as const
+export const cabinetViews = ["favorites", "unsorted", "archive", "trash", "broken", "duplicates"] as const
 export type CabinetView = (typeof cabinetViews)[number]
 export type CabinetFormat = "all" | "links" | "notes" | "drawings" | "media" | "documents"
 

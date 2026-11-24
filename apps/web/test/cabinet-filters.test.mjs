@@ -7,6 +7,8 @@ const id = "12345678-1234-4234-8234-123456789abc"
 test("primary location lives in the path", () => {
   assert.equal(buildCabinetUrl({}).url, "/cabinet")
   assert.equal(buildCabinetUrl({ view: "favorites" }).url, "/cabinet/favorites")
+  assert.equal(buildCabinetUrl({ view: "unsorted" }).url, "/cabinet/unsorted")
+  assert.equal(parseCabinetLocation("/cabinet/unsorted", "").view, "unsorted")
   assert.equal(buildCabinetUrl({ folderId: id }).url, `/cabinet/folders/${id}`)
   assert.equal(buildCabinetUrl({ tag: "a b" }).url, "/cabinet/tags/a%20b")
 })

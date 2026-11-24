@@ -12,6 +12,7 @@ import {
   BookmarkSimple,
   ClockCounterClockwise,
   Star,
+  Tray,
   Archive,
   FolderPlus,
   Trash,
@@ -57,6 +58,8 @@ interface SidebarFiltersProps {
   onSelectTag: (tag: string | undefined) => void
   filterFavorite?: boolean
   onSelectFavorite: (fav: boolean | undefined) => void
+  filterUnsorted?: boolean
+  onSelectUnsorted?: (unsorted: boolean) => void
   filterArchived?: boolean
   onSelectArchived: (arch: boolean | undefined) => void
   folders: any[]
@@ -116,6 +119,8 @@ export function CabinetSidebarFilters({
   onSelectTag,
   filterFavorite,
   onSelectFavorite,
+  filterUnsorted,
+  onSelectUnsorted,
   filterArchived,
   onSelectArchived,
   folders,
@@ -215,6 +220,7 @@ export function CabinetSidebarFilters({
               isActive={
                 selectedFolderId === undefined &&
                 filterFavorite === undefined &&
+                !filterUnsorted &&
                 filterArchived === false &&
                 selectedTag === undefined &&
                 filterBroken === undefined &&
@@ -252,6 +258,28 @@ export function CabinetSidebarFilters({
                 onItemSelect?.()
               }}
             />
+
+            {onSelectUnsorted && (
+              <WorkspaceSidebarItem
+                icon={<Tray className="size-4" />}
+                label="Unsorted"
+                isActive={!!filterUnsorted}
+                onClick={() => {
+                  onSelectFolder(undefined)
+                  onSelectTag(undefined)
+                  onSelectFavorite(undefined)
+                  onSelectArchived(false)
+                  onSelectBroken(undefined)
+                  onSelectDuplicates(undefined)
+                  onSelectTrash?.(undefined)
+                  onSelectType?.(undefined)
+                  onSelectContentType?.(undefined)
+                  // After onSelectFolder, which clears Unsorted in the same batch.
+                  onSelectUnsorted(true)
+                  onItemSelect?.()
+                }}
+              />
+            )}
 
             <WorkspaceSidebarItem
               icon={<Archive className="h-3.5 w-3.5" />}

@@ -36,6 +36,8 @@ export function useCabinetFilters(folders: { id: string; name: string }[]) {
   const [filterFavorite, setFilterFavoriteState] = useState<boolean | undefined>(
     initialUrl.view === "favorites" ? true : undefined
   )
+  // Items outside every folder; any folder or view change clears it (see setSelectedFolderId).
+  const [filterUnsorted, setFilterUnsorted] = useState(initialUrl.view === "unsorted")
   const [filterArchived, setFilterArchivedState] = useState<boolean | undefined>(
     initialUrl.view === "archive" ? true : false
   )
@@ -94,6 +96,7 @@ export function useCabinetFilters(folders: { id: string; name: string }[]) {
   const currentView = useMemo<CabinetView | undefined>(() => {
     if (filterTrash) return "trash"
     if (filterFavorite) return "favorites"
+    if (filterUnsorted) return "unsorted"
     if (filterArchived) return "archive"
     if (filterBroken) return "broken"
     if (filterDuplicates) return "duplicates"
@@ -101,6 +104,7 @@ export function useCabinetFilters(folders: { id: string; name: string }[]) {
   }, [
     filterTrash,
     filterFavorite,
+    filterUnsorted,
     filterArchived,
     filterBroken,
     filterDuplicates,
@@ -166,6 +170,7 @@ export function useCabinetFilters(folders: { id: string; name: string }[]) {
 
       // Apply view mode
       setFilterFavoriteState(parsed.view === "favorites" ? true : undefined)
+      setFilterUnsorted(parsed.view === "unsorted")
       setFilterArchivedState(parsed.view === "archive" ? true : false)
       setFilterBrokenState(parsed.view === "broken" ? true : undefined)
       setFilterDuplicatesState(parsed.view === "duplicates" ? true : undefined)
@@ -213,6 +218,8 @@ export function useCabinetFilters(folders: { id: string; name: string }[]) {
   const setSelectedFolderId = useCallback(
     (id: string | undefined) => {
       setSelectedFolderIdState(id)
+      // Every sidebar and toolbar navigation passes through here, so it also leaves Unsorted.
+      setFilterUnsorted(false)
       if (id) {
         setSelectedTagState(undefined)
         setFilterFavoriteState(undefined)
@@ -319,11 +326,12 @@ export function useCabinetFilters(folders: { id: string; name: string }[]) {
   const activeMobileTab = useMemo<MobileTab>(() => {
     if (filterFavorite) return "favorites"
     if (selectedFolderId) return "folders"
-    if (filterTrash || filterBroken || filterDuplicates || filterArchived)
+    if (filterTrash || filterBroken || filterDuplicates || filterArchived || filterUnsorted)
       return "library"
     return "all"
   }, [
     filterFavorite,
+    filterUnsorted,
     selectedFolderId,
     filterTrash,
     filterBroken,
@@ -337,6 +345,7 @@ export function useCabinetFilters(folders: { id: string; name: string }[]) {
       setSelectedFolderIdState(next.folderId)
       setSelectedTagState(next.tag)
       setFilterFavoriteState(next.view === "favorites" ? true : undefined)
+      setFilterUnsorted(next.view === "unsorted")
       setFilterArchivedState(next.view === "archive" ? true : next.view === "trash" ? undefined : false)
       setFilterBrokenState(next.view === "broken" ? true : undefined)
       setFilterDuplicatesState(next.view === "duplicates" ? true : undefined)
@@ -366,6 +375,7 @@ export function useCabinetFilters(folders: { id: string; name: string }[]) {
       return folder ? folder.name : "Folder"
     }
     if (filterFavorite) return "Favorites"
+    if (filterUnsorted) return "Unsorted"
     if (filterArchived) return "Archive"
     if (filterBroken) return "Broken links"
     if (filterDuplicates) return "Duplicates"
@@ -383,6 +393,7 @@ export function useCabinetFilters(folders: { id: string; name: string }[]) {
     selectedFolderId,
     selectedTag,
     filterFavorite,
+    filterUnsorted,
     filterArchived,
     filterBroken,
     filterDuplicates,
@@ -413,6 +424,8 @@ export function useCabinetFilters(folders: { id: string; name: string }[]) {
     setSelectedFolderId,
     filterFavorite,
     setFilterFavorite,
+    filterUnsorted,
+    setFilterUnsorted,
     filterArchived,
     setFilterArchived,
     selectedTag,

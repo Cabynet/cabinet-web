@@ -149,6 +149,8 @@ export type ListBookmarksParams = {
   isArchived?: boolean | null
   isFavorite?: boolean | null
   trash?: boolean | null
+  /** Only items that are not in any folder. */
+  unsorted?: boolean | null
   status?: string | null
   search?: string | null
   type?: string | null

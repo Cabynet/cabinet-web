@@ -137,6 +137,8 @@ function CabinetWorkspace() {
     setSelectedFolderId,
     filterFavorite,
     setFilterFavorite,
+    filterUnsorted,
+    setFilterUnsorted,
     filterArchived,
     setFilterArchived,
     selectedTag,
@@ -278,6 +280,7 @@ function CabinetWorkspace() {
     {
       folderId: filterTrash ? undefined : selectedFolderId,
       isFavorite: filterTrash ? undefined : filterFavorite,
+      unsorted: filterTrash || !filterUnsorted ? undefined : true,
       isArchived: filterTrash ? undefined : filterArchived,
       isTrash: filterTrash,
       tag: filterTrash ? undefined : selectedTag,
@@ -632,6 +635,8 @@ function CabinetWorkspace() {
                 onSelectTag={setSelectedTag}
                 filterFavorite={filterFavorite}
                 onSelectFavorite={setFilterFavorite}
+                filterUnsorted={filterUnsorted}
+                onSelectUnsorted={setFilterUnsorted}
                 filterArchived={filterArchived}
                 onSelectArchived={setFilterArchived}
                 folders={folders}
