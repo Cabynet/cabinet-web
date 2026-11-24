@@ -134,10 +134,12 @@ try {
   await reset()
   await card(1).getByRole("button", { name: "Pin to top", exact: true }).click()
   await expect(page.locator("#order")).toHaveText(/^b1,b0,b2,/)
-  await expect(card(1)).not.toHaveAttribute("aria-roledescription", "sortable")
+  // Pinned cards can still be filed into a folder, but never reorder.
   const pinnedOrder = await order()
   await drag(card(1), card(0))
   assert.equal(await order(), pinnedOrder)
+  await drag(card(1), page.locator('[data-folder-drop="design"]'))
+  await expect(page.locator("#drop")).toHaveText("design:b1")
   await card(1).getByRole("button", { name: "Unpin bookmark", exact: true }).click()
   await expect(card(1)).toHaveAttribute("aria-roledescription", "sortable")
 
@@ -148,8 +150,23 @@ try {
   for (const [value, label] of [["newest", "Newest First"], ["oldest", "Oldest First"], ["title", "Alphabetical (A-Z)"], ["domain", "Domain"]]) {
     await chooseSort(label)
     await expect(page.locator("#sort")).toHaveText(value)
-    await expect(page.locator('[data-slot="masonry"] [aria-roledescription="sortable"]')).toHaveCount(0)
   }
+  // Any sort can still drag cards into a folder; dropping on another card changes nothing.
+  const sortedOrder = await order()
+  await drag(card(2), card(3))
+  assert.equal(await order(), sortedOrder)
+  await drag(card(2), page.locator('[data-folder-drop="design"]'))
+  await expect(page.locator("#drop")).toHaveText("design:b2")
+  assert.equal(await order(), sortedOrder)
+  // List rows share the same drag context, so they reach the sidebar folders too.
+  await page.getByRole("button", { name: "List view", exact: true }).click()
+  const row = (id) => page.locator(`[data-slot="sortable-content"] [data-slot="sortable-item"][aria-label="Reorder Bookmark ${id}"]`)
+  // The left edge of a row is its checkbox, so grab the title.
+  await drag(row(4).getByRole("link", { name: "Bookmark 4", exact: true }), page.locator('[data-folder-drop="design"]'))
+  await expect(page.locator("#drop")).toHaveText("design:b4")
+  assert.equal(await order(), sortedOrder)
+  await expect(page.locator('[data-dragging=""]')).toHaveCount(0)
+  await page.getByRole("button", { name: "List view", exact: true }).click()
   await page.reload()
   await expect(page.locator("#sort")).toHaveText("domain")
   await chooseSort("Custom Order (Drag & Drop)")

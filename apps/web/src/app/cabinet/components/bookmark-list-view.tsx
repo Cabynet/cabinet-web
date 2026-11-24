@@ -11,9 +11,13 @@ import { toast } from "@/components/ui/sonner"
 import { canDownloadMedia, isDrawingBookmark, isNoteBookmark, isVideoBookmark, isPdfBookmark, itemAccess } from "@/lib/bookmark-kind"
 import { activateBookmark, bookmarkOriginalHref } from "@/lib/bookmark-click"
 import { defaultDisplayPreferences, effectiveDisplayPreferences, type DisplayPreferences } from "./display-preferences"
-import { Sortable, SortableContent, SortableItem } from "@/components/ui/sortable"
+import { verticalListSortingStrategy } from "@dnd-kit/sortable"
+import { Sortable, SortableContent, SortableItem, SortableOverlay } from "@/components/ui/sortable"
+import { MoodboardDragPreview } from "./bookmark-moodboard-view"
 
 interface BookmarkListViewProps {
+  /** Dashboard shares its drag context with sidebar folder targets. */
+  sortableInParent?: boolean
   displayPreferences?: DisplayPreferences
   bookmarks: any[]
   selectedBookmarkIds: string[]
@@ -36,7 +40,7 @@ interface BookmarkListViewProps {
 }
 
 export function BookmarkListView({
-  displayPreferences, bookmarks, selectedBookmarkIds, onToggleSelect, onSelectTag,
+  sortableInParent = false, displayPreferences, bookmarks, selectedBookmarkIds, onToggleSelect, onSelectTag,
   onToggleFavorite, onTogglePin, onToggleArchive, onEditBookmark, onDeleteBookmark,
   onDuplicateBookmark, getHostname, onReorder, isTrashView, onRestoreBookmark,
   onPermanentDeleteBookmark, onOpenActionSheet, onOpenDownload, onInspectBookmark,
@@ -48,9 +52,15 @@ export function BookmarkListView({
     toast.success("URL copied to clipboard")
   }
 
-  return (
-    <Sortable value={bookmarks} onValueChange={(items) => onReorder?.(items)} getItemValue={(item) => item.id} orientation="vertical">
-      <SortableContent className="divide-y divide-border/60 overflow-hidden rounded-lg border border-border bg-card">
+  const canSort = !isTrashView && !!onReorder
+  // The dashboard's drag context includes the sidebar folders, so rows can be moved there under any sort.
+  const canDragToFolder = sortableInParent && !isTrashView
+  const canDragBookmark = (bookmark: any) =>
+    bookmark.canEdit !== false && (canDragToFolder || (canSort && !bookmark.isPinned))
+
+  const content = (
+    <>
+      <SortableContent strategy={sortableInParent ? verticalListSortingStrategy : undefined} className="divide-y divide-border/60 overflow-hidden rounded-lg border border-border bg-card">
         {bookmarks.map((bookmark: any) => {
           const hostname = getHostname(bookmark.url)
           const isSelected = selectedBookmarkIds.includes(bookmark.id)
@@ -73,15 +83,17 @@ export function BookmarkListView({
           const date = bookmark.createdAt ? new Date(bookmark.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : ""
           return (
             <SortableItem key={bookmark.id} value={bookmark.id}
-              asHandle={!isTrashView && !!onReorder && !bookmark.isPinned && bookmark.canEdit !== false}
-              disabled={isTrashView || !onReorder || bookmark.isPinned || bookmark.canEdit === false}
-              data-readonly={access === "viewer"} aria-label={`Reorder ${bookmark.title || "bookmark"}`}
+              asHandle={canDragBookmark(bookmark)}
+              disabled={!canDragBookmark(bookmark)}
+              data-readonly={access === "viewer"}
+              aria-label={`Reorder ${bookmark.title || "bookmark"}`}
               className={cn(
-                "group/item flex items-center justify-between gap-3 bg-card px-4 transition-colors hover:bg-muted/30 [&[data-readonly=true]_[data-bookmark-actions]]:hidden",
+                "group/item flex items-center justify-between gap-3 bg-card px-4 transition-colors hover:bg-muted/30 data-dragging:opacity-50 [&[data-readonly=true]_[data-bookmark-actions]]:hidden",
                 preferences.density === "compact" ? "min-h-14 py-2 text-sm" : "min-h-20 py-4 text-base",
                 isSelected && "bg-library-highlight",
               )}
-              draggable={bookmark.canEdit !== false}
+              // Outside the dashboard (e.g. duplicate groups) folders only accept native drags.
+              draggable={!sortableInParent && bookmark.canEdit !== false}
               onDragStart={(event) => {
                 const ids = isSelected && selectedBookmarkIds.length > 0 ? selectedBookmarkIds : [bookmark.id]
                 startBookmarkDrag(event, ids, bookmark.title || hostname || "Bookmark")
@@ -140,6 +152,27 @@ export function BookmarkListView({
           )
         })}
       </SortableContent>
+      {sortableInParent && (
+        <SortableOverlay dropAnimation={null}>
+          {({ value }) => {
+            const bookmark = bookmarks.find((item) => item.id === value)
+            if (!bookmark) return null
+            const count = selectedBookmarkIds.includes(bookmark.id) ? selectedBookmarkIds.length : 1
+            return (
+              <MoodboardDragPreview bookmark={bookmark} count={count}>
+                <div className="flex max-w-md items-center gap-2 truncate rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium shadow-lg">
+                  {count > 1 ? `${count} bookmarks` : bookmark.title || getHostname(bookmark.url) || "Bookmark"}
+                </div>
+              </MoodboardDragPreview>
+            )
+          }}
+        </SortableOverlay>
+      )}
+    </>
+  )
+  return sortableInParent ? content : (
+    <Sortable value={bookmarks} onValueChange={(items) => onReorder?.(items)} getItemValue={(item) => item.id} orientation="vertical">
+      {content}
     </Sortable>
   )
 }

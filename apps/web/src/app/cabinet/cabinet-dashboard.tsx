@@ -37,7 +37,7 @@ import { editorPath } from "@/lib/bookmark-kind"
 import { useBookmarkEnrichment } from "./hooks/use-bookmark-enrichment"
 import { BookmarkList } from "./components/bookmark-list"
 import { Sortable } from "@/components/ui/sortable"
-import { bookmarkCollisionDetection, masonrySortingStrategy } from "@/lib/bookmark-sortable"
+import { bookmarkCollisionDetection, masonrySortingStrategy, reorderOnMove } from "@/lib/bookmark-sortable"
 import { Archive, Trash, ArrowCounterClockwise, Hash as TagIcon } from "@phosphor-icons/react"
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
@@ -591,6 +591,9 @@ function CabinetWorkspace() {
     void moveBookmarks(bookmarkIds, folderId, targetFolder?.name)
   }
 
+  // Cards can always be dragged onto a folder; reordering needs the custom, unfiltered order.
+  const canReorder = sort === "custom" && !searchDebounced && !domain && !addedAfter && !addedBefore && !filterTrash && !bookmarks.some((item: any) => item.canEdit === false)
+
   const handleOpenFromCommandMenu = (bookmark: any) => {
     const path = editorPath(bookmark)
     if (path) router.push(path)
@@ -606,7 +609,7 @@ function CabinetWorkspace() {
     <Sortable
       value={filteredBookmarks}
       getItemValue={(bookmark) => bookmark.id}
-      onValueChange={handleReorder}
+      onMove={reorderOnMove(filteredBookmarks, canReorder ? handleReorder : undefined)}
       orientation="mixed"
       strategy={masonrySortingStrategy}
       collisionDetection={bookmarkCollisionDetection}
@@ -792,7 +795,7 @@ function CabinetWorkspace() {
                 isDuplicatesView={filterDuplicates}
                 duplicateGroups={duplicateGroups}
                 onCleanDuplicates={handleCleanDuplicates}
-                onReorder={sort === "custom" && !searchDebounced && !domain && !addedAfter && !addedBefore && !filterTrash && !bookmarks.some((item: any) => item.canEdit === false) ? handleReorder : undefined}
+                onReorder={canReorder ? handleReorder : undefined}
                 isTrashView={filterTrash}
                 onRestoreBookmark={handleRestoreBookmark}
                 onPermanentDeleteBookmark={handlePermanentDeleteBookmark}

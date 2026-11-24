@@ -5,11 +5,12 @@ import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/a
 import { BookmarkViewControls } from "../../src/app/cabinet/components/toolbar"
 import { useCabinetFilters } from "../../src/app/cabinet/hooks/use-cabinet-filters"
 import { BookmarkMoodboardView } from "../../src/app/cabinet/components/bookmark-moodboard-view"
+import { BookmarkListView } from "../../src/app/cabinet/components/bookmark-list-view"
 import { FolderTree } from "../../src/app/cabinet/components/folder-tree"
 import { Sortable } from "../../src/components/ui/sortable"
 import { TooltipProvider } from "../../src/components/ui/tooltip"
 import { SidebarProvider } from "../../src/components/ui/sidebar"
-import { bookmarkCollisionDetection, masonrySortingStrategy } from "../../src/lib/bookmark-sortable"
+import { bookmarkCollisionDetection, masonrySortingStrategy, reorderOnMove } from "../../src/lib/bookmark-sortable"
 
 const thumbnail = (height: number) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="320" height="${height}"><rect width="320" height="${height}" fill="#ddd"/></svg>`)}`
 const initial = Array.from({ length: 24 }, (_, i) => ({
@@ -27,6 +28,7 @@ function Fixture() {
   const { sort, handleSortChange } = useCabinetFilters([])
   const [columns, setColumns] = React.useState(3)
   const [trash, setTrash] = React.useState(false)
+  const [list, setList] = React.useState(false)
   const [selected, setSelected] = React.useState<string[]>([])
   const [drop, setDrop] = React.useState("")
   const [inspections, setInspections] = React.useState(0)
@@ -38,6 +40,7 @@ function Fixture() {
       <button onClick={() => { setBookmarks(initial); setDrop(""); setSelected([]) }}>Reset</button>
       <button onClick={() => setColumns((n) => n === 3 ? 2 : 3)}>Columns</button>
       <button onClick={() => setTrash((v) => !v)}>Trash view</button>
+      <button onClick={() => setList((v) => !v)}>List view</button>
       <button onClick={() => setBookmarks((items) => items.slice(1))}>Remove first</button>
       <button onClick={() => setBookmarks((items) => items.map((item, i) => i === 0 ? { ...item, imageUrl: "/late.svg" } : item))}>Resize thumbnail</button>
       <button onClick={() => setBookmarks((items) => [...items, { ...initial[0]!, id: "extra", title: "Extra" }])}>Append</button>
@@ -47,7 +50,7 @@ function Fixture() {
       <output id="drop">{drop}</output>
       <output id="inspections">{inspections}</output>
       <Sortable
-        value={bookmarks} getItemValue={(b) => b.id} onValueChange={setBookmarks}
+        value={bookmarks} getItemValue={(b) => b.id} onMove={reorderOnMove(bookmarks, sort === "custom" && !trash ? setBookmarks : undefined)}
         orientation="mixed" strategy={masonrySortingStrategy} collisionDetection={bookmarkCollisionDetection}
         onDragEnd={({ active, over }) => {
           if (over?.data.current?.folderId) {
@@ -60,7 +63,13 @@ function Fixture() {
             <FolderTree folders={[{ id: "design", name: "Design", parentId: null }]} onSelectFolder={noop} onEditFolder={noop} onDeleteFolder={noop} onDropBookmarkToFolder={noop} />
           </aside>
           <main id="panel" style={{ height: 600, overflow: "auto", flex: 1 }}>
-            <BookmarkMoodboardView
+            {list ? <BookmarkListView
+              sortableInParent bookmarks={bookmarks} selectedBookmarkIds={selected}
+              onToggleSelect={(id) => setSelected((ids) => ids.includes(id) ? ids.filter((v) => v !== id) : [...ids, id])}
+              onSelectTag={noop} onToggleFavorite={noop} onToggleArchive={noop}
+              onEditBookmark={noop} onDeleteBookmark={noop} onDuplicateBookmark={noop}
+              getHostname={() => "example.com"} onReorder={sort === "custom" ? setBookmarks : undefined}
+            /> : <BookmarkMoodboardView
               sortableInParent bookmarks={bookmarks} activeColumnCount={columns}
               selectedBookmarkIds={selected} isTrashView={trash}
               onToggleSelect={(id) => setSelected((ids) => ids.includes(id) ? ids.filter((v) => v !== id) : [...ids, id])}
@@ -70,7 +79,7 @@ function Fixture() {
               getHostname={() => "example.com"} getPastelColor={() => ({ bg: "", text: "" })}
               onTogglePin={(bookmark) => setBookmarks((items) => items.map((item) => item.id === bookmark.id ? { ...item, isPinned: !item.isPinned } : item).sort((a, b) => Number(b.isPinned) - Number(a.isPinned)))}
               onReorder={sort === "custom" ? setBookmarks : undefined} onInspectBookmark={() => setInspections((n) => n + 1)}
-            />
+            />}
           </main>
         </div>
       </Sortable>

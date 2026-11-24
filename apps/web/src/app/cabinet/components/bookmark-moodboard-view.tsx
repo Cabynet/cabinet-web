@@ -5,6 +5,7 @@ import { useDndContext } from "@dnd-kit/core"
 import { Masonry, MasonryItem } from "@/components/ui/masonry"
 import { bookmarkCollisionDetection, masonrySortingStrategy } from "@/lib/bookmark-sortable"
 import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
 import { type DisplayPreferences } from "./display-preferences"
 import { Sortable, SortableContent, SortableItem, SortableOverlay } from "@/components/ui/sortable"
 import { MoodboardCard } from "./moodboard-card"
@@ -96,7 +97,11 @@ export function BookmarkMoodboardView({
   onInspectBookmark,
 }: BookmarkMoodboardViewProps) {
   const canSort = !isTrashView && !!onReorder
+  // The dashboard's drag context includes the sidebar folders, so cards can be moved there under any sort.
+  const canDragToFolder = sortableInParent && !isTrashView
   const hasSelectedItems = selectedBookmarkIds.length > 0
+  const canDragBookmark = (bookmark: any) =>
+    bookmark.canEdit !== false && (canDragToFolder || (canSort && !bookmark.isPinned))
   const renderCard = (bookmark: any) => {
     const isSelected = selectedBookmarkIds.includes(bookmark.id)
     return (
@@ -136,10 +141,10 @@ export function BookmarkMoodboardView({
             <MasonryItem key={bookmark.id}>
               <SortableItem
                 value={bookmark.id}
-                asHandle={canSort && !bookmark.isPinned && bookmark.canEdit !== false}
-                disabled={!canSort || bookmark.isPinned || bookmark.canEdit === false}
+                asHandle={canDragBookmark(bookmark)}
+                disabled={!canDragBookmark(bookmark)}
                 aria-label={`Reorder ${bookmark.title || "bookmark"}`}
-                className="w-full rounded-md data-dragging:opacity-30 data-sort-over:ring-2 data-sort-over:ring-primary"
+                className={cn("w-full rounded-md data-dragging:opacity-30", canSort && "data-sort-over:ring-2 data-sort-over:ring-primary")}
               >
                 {renderCard(bookmark)}
               </SortableItem>

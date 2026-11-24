@@ -519,6 +519,7 @@ export function BookmarkList({
         <div>
           {viewMode === "list" ? (
             <BookmarkListView
+              sortableInParent={sortableInParent}
               onTogglePin={onTogglePin}
               displayPreferences={displayPreferences}
               bookmarks={bookmarks}
